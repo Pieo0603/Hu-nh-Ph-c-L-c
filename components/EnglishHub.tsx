@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../services/firebase';
-import { collection, query, where, getDocs, onSnapshot, setDoc, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { ThemeConfig, VocabItem, Topic, AppUser } from '../types';
 import { BookOpen, HelpCircle, Volume2, RotateCw, Check, X, ArrowLeft, BrainCircuit, Code, Save, ChevronRight, Trophy, Meh, Smile, Loader2, Lock, BarChart3, Clock, Flame, PieChart, AlertTriangle } from 'lucide-react';
 
@@ -64,8 +63,9 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user }) => {
   // Load User Progress (Realtime)
   useEffect(() => {
     if (user) {
-        const q = query(collection(db, "user_learning_progress"), where("userId", "==", user.uid));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unsubscribe = db.collection("user_learning_progress")
+            .where("userId", "==", user.uid)
+            .onSnapshot((snapshot) => {
             const progressMap: Record<string, UserTopicProgress> = {};
             snapshot.docs.forEach(doc => {
                 const data = doc.data();
@@ -87,8 +87,8 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user }) => {
   useEffect(() => {
     if (selectedTopic) {
       setLoading(true);
-      const q = query(collection(db, "vocabulary"), where("topicId", "==", selectedTopic.id));
-      getDocs(q).then((snapshot) => {
+      db.collection("vocabulary").where("topicId", "==", selectedTopic.id).get()
+      .then((snapshot) => {
         const words = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VocabItem));
         if (words.length > 0) {
             setVocabList(words);
@@ -139,11 +139,11 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user }) => {
   const saveProgress = async (topicId: string, type: 'flashcard' | 'quiz' | 'time', data: any) => {
       if (!user) return;
       const docId = `${user.uid}_${topicId}`;
-      const docRef = doc(db, "user_learning_progress", docId);
+      const docRef = db.collection("user_learning_progress").doc(docId);
       
       try {
-          const docSnap = await getDoc(docRef);
-          let currentData = docSnap.exists() ? docSnap.data() as UserTopicProgress : {
+          const docSnap = await docRef.get();
+          let currentData = docSnap.exists ? docSnap.data() as UserTopicProgress : {
               topicId, userId: user.uid, memorized: [], learning: [], quizScores: [], studySeconds: 0, lastStudied: Date.now()
           };
 
@@ -164,7 +164,7 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user }) => {
           }
 
           currentData.lastStudied = Date.now();
-          await setDoc(docRef, currentData, { merge: true });
+          await docRef.set(currentData, { merge: true });
       } catch (e) {
           console.error("Error saving progress:", e);
       }

@@ -11,10 +11,10 @@ import MusicTab from './components/MusicTab';
 import { Message, ThemeConfig, AppUser } from './types';
 import { Settings, Home, Palette, Music, Timer, BrainCircuit, LogOut, LogIn, User as UserIcon, X, ArrowRight, Edit3, Camera } from 'lucide-react';
 
-// Firebase imports
+// FIX: Import firebase from 'firebase/compat/app' for Types
+import firebase from 'firebase/compat/app';
+// FIX: Import instances from local service (removed 'firebase' export usage to avoid conflict)
 import { db, auth, googleProvider } from './services/firebase';
-import { collection, addDoc, onSnapshot, query, orderBy, doc, deleteDoc, writeBatch } from 'firebase/firestore';
-import { signInWithPopup, signOut, onAuthStateChanged, User, updateProfile } from 'firebase/auth';
 
 // Use a fixed date for THPT 2026 (Approximately late June)
 const EXAM_DATE = new Date('2026-06-27T07:30:00');
@@ -92,8 +92,8 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [showThemePicker, setShowThemePicker] = useState(false);
   
-  // Auth State
-  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  // Auth State - Now properly typed with firebase.User
+  const [firebaseUser, setFirebaseUser] = useState<firebase.User | null>(null);
   const [guestUser, setGuestUser] = useState<AppUser | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [guestNameInput, setGuestNameInput] = useState('');
@@ -115,13 +115,14 @@ const App: React.FC = () => {
   // Listen for realtime updates from Firebase (Messages)
   useEffect(() => {
     try {
-        const q = query(collection(db, "wishes"), orderBy("timestamp", "desc"));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-          const msgs = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          })) as Message[];
-          setMessages(msgs);
+        const unsubscribe = db.collection("wishes")
+          .orderBy("timestamp", "desc")
+          .onSnapshot((snapshot) => {
+            const msgs = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            })) as Message[];
+            setMessages(msgs);
         }, (error) => {
             console.error("Lỗi khi đọc dữ liệu Firebase:", error);
         });
@@ -131,23 +132,49 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Listen for Auth Changes (Firebase)
+  // Listen for Auth Changes (Firebase) - Handles both Popup and Redirect flows
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
        setFirebaseUser(user);
        if (user) {
          setGuestUser(null); // Clear guest if logged in real
          setShowLoginModal(false);
        }
     });
+
+    // Check for Redirect Result (Cần thiết cho mobile/redirect flow)
+    auth.getRedirectResult().then((result) => {
+      if (result.user) {
+        console.log("Đăng nhập qua Redirect thành công:", result.user.email);
+        setFirebaseUser(result.user);
+        setShowLoginModal(false);
+      }
+    }).catch((error) => {
+      console.error("Lỗi khi nhận kết quả Redirect:", error);
+      // Không alert lỗi này để tránh spam nếu người dùng chỉ F5 trang
+      if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/redirect-cancelled-by-user') {
+         // console.log(error);
+      }
+    });
+
     return () => unsubscribe();
   }, []);
 
   const handleGlobalLoginGoogle = async () => {
       try {
-          await signInWithPopup(auth, googleProvider);
-      } catch (e) {
-          console.error("Login failed", e);
+          // Thử đăng nhập bằng Popup trước (Tốt cho Desktop)
+          await auth.signInWithPopup(googleProvider);
+      } catch (e: any) {
+          console.error("Popup login failed, attempting redirect...", e);
+          
+          // Nếu Popup thất bại (bất kể lỗi gì, nhất là trên mobile/in-app browser), 
+          // chuyển sang dùng Redirect (Chuyển trang).
+          try {
+              await auth.signInWithRedirect(googleProvider);
+          } catch (e2: any) {
+              console.error("Redirect failed", e2);
+              alert(`Đăng nhập thất bại. Vui lòng thử lại trên trình duyệt Chrome/Safari.\nLỗi: ${e.message}`);
+          }
       }
   };
 
@@ -166,7 +193,7 @@ const App: React.FC = () => {
 
   const handleGlobalLogout = async () => {
       if (firebaseUser) {
-          await signOut(auth);
+          await auth.signOut();
       }
       setGuestUser(null);
       setFirebaseUser(null);
@@ -193,12 +220,13 @@ const App: React.FC = () => {
       setIsUpdatingProfile(true);
       try {
           const newPhotoURL = `https://api.dicebear.com/7.x/notionists/svg?seed=${editAvatarSeed}`;
-          await updateProfile(firebaseUser, {
+          // Use v8 updateProfile method on user object
+          await firebaseUser.updateProfile({
               displayName: editName,
               photoURL: newPhotoURL
           });
-          // Force UI update bằng cách set lại firebaseUser (dù onAuthStateChanged sẽ tự bắt)
-          setFirebaseUser({ ...firebaseUser, displayName: editName, photoURL: newPhotoURL });
+          // Force UI update
+          setFirebaseUser({ ...firebaseUser, displayName: editName, photoURL: newPhotoURL } as firebase.User);
           setShowEditProfile(false);
           alert("Cập nhật hồ sơ thành công!");
       } catch (error) {
@@ -210,7 +238,7 @@ const App: React.FC = () => {
   };
 
   const handleAddMessage = async (newMsg: Omit<Message, 'id' | 'timestamp'>) => {
-      await addDoc(collection(db, "wishes"), {
+      await db.collection("wishes").add({
         ...newMsg,
         timestamp: Date.now()
       });
@@ -218,9 +246,9 @@ const App: React.FC = () => {
 
   const handleDeleteMessages = async (idsToDelete: string[]) => {
       try {
-        const batch = writeBatch(db);
+        const batch = db.batch();
         idsToDelete.forEach(id => {
-            const docRef = doc(db, "wishes", id);
+            const docRef = db.collection("wishes").doc(id);
             batch.delete(docRef);
         });
         await batch.commit();

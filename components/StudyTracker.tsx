@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/firebase';
-import { collection, addDoc, query, orderBy, onSnapshot, limit, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { StudyLog, ThemeConfig, LeaderboardEntry, AppUser } from '../types';
 import { Play, Pause, Square, CheckCircle, Clock, BookOpen, LogOut, LayoutList, Trophy, User as UserIcon, AlertCircle, ArrowRight, History, Lock, Trash2 } from 'lucide-react';
 
@@ -52,8 +51,10 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
   // 1. Fetch Recent Logs (for "Realtime" list) & Leaderboard Calculation
   useEffect(() => {
     try {
-        const q = query(collection(db, "study_logs"), orderBy("timestamp", "desc"), limit(200));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unsubscribe = db.collection("study_logs")
+          .orderBy("timestamp", "desc")
+          .limit(200)
+          .onSnapshot((snapshot) => {
           const fetchedLogs = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
@@ -99,14 +100,12 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
         const fetchHistory = async () => {
              try {
                 // Let's try correct query. If index missing, console will log link.
-                const q = query(
-                    collection(db, "study_logs"), 
-                    where("userId", "==", user.uid), 
-                    orderBy("timestamp", "desc"),
-                    limit(50)
-                );
+                const snapshot = await db.collection("study_logs")
+                    .where("userId", "==", user.uid)
+                    .orderBy("timestamp", "desc")
+                    .limit(50)
+                    .get();
                 
-                const snapshot = await getDocs(q);
                 const history = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StudyLog[];
                 setUserHistory(history);
              } catch (e: any) {
@@ -157,7 +156,7 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
     setIsTimerRunning(false);
     const durationMinutes = Math.floor(elapsedSeconds / 60);
     try {
-        await addDoc(collection(db, "study_logs"), {
+        await db.collection("study_logs").add({
             userId: user.uid,
             userName: user.displayName || "Bạn học bí ẩn",
             userAvatar: user.photoURL || "",
@@ -185,7 +184,7 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
       if (!window.confirm("Bạn có chắc chắn muốn xóa bản ghi thời gian này không?")) return;
       
       try {
-          await deleteDoc(doc(db, "study_logs", logId));
+          await db.collection("study_logs").doc(logId).delete();
           // Update local state immediately for better UX
           setUserHistory(prev => prev.filter(log => log.id !== logId));
           // Optional: Update global logs if needed, though they update via onSnapshot

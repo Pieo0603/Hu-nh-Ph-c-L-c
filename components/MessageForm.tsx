@@ -82,7 +82,8 @@ const MessageForm: React.FC<MessageFormProps> = ({ onAddMessage, theme }) => {
         author: isAnonymous ? 'Người bí ẩn' : (name || 'Bạn học'),
         content,
         isAnonymous,
-        imageUrl: image,
+        // Chỉ thêm imageUrl nếu có ảnh, tránh lỗi "Unsupported field value: undefined" của Firebase
+        ...(image ? { imageUrl: image } : {}),
         avatarUrl: `https://api.dicebear.com/7.x/notionists/svg?seed=${isAnonymous ? 'anon' : name}`,
       });
 

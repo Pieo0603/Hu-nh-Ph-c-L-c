@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Message, ThemeConfig, VocabItem, StudyLog } from '../types';
 import { X, Trash2, CheckSquare, Square, Search, Download, Filter, LogOut, Wrench, Lock, Lightbulb, Upload, FileText, Database, PlusCircle, Wand2, Info, BookOpen, RefreshCw, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { db } from '../services/firebase';
-import { collection, addDoc, writeBatch, doc, query, getDocs, where, orderBy, limit } from 'firebase/firestore';
 
 interface AdminDashboardProps {
   messages: Message[];
@@ -54,11 +53,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
     try {
         let q;
         if (vocabFilterTopic === 'all') {
-            q = query(collection(db, "vocabulary"));
+            q = db.collection("vocabulary");
         } else {
-            q = query(collection(db, "vocabulary"), where("topicId", "==", vocabFilterTopic));
+            q = db.collection("vocabulary").where("topicId", "==", vocabFilterTopic);
         }
-        const snapshot = await getDocs(q);
+        const snapshot = await q.get();
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VocabItem));
         setVocabList(data);
         setSelectedVocabIds(new Set()); // Reset selection when filtering
@@ -73,8 +72,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
       setLogsLoading(true);
       try {
           // Fetch last 100 logs
-          const q = query(collection(db, "study_logs"), orderBy("timestamp", "desc"), limit(100));
-          const snapshot = await getDocs(q);
+          const snapshot = await db.collection("study_logs").orderBy("timestamp", "desc").limit(100).get();
           const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StudyLog));
           setStudyLogs(data);
           setSelectedLogIds(new Set());
@@ -176,9 +174,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
       } else if (deleteMode === 'vocab') {
           setVocabLoading(true);
           try {
-              const batch = writeBatch(db);
+              const batch = db.batch();
               selectedVocabIds.forEach(id => {
-                  batch.delete(doc(db, "vocabulary", id));
+                  batch.delete(db.collection("vocabulary").doc(id));
               });
               await batch.commit();
               alert(`Đã xóa ${selectedVocabIds.size} từ vựng!`);
@@ -192,9 +190,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
       } else if (deleteMode === 'study_logs') {
           setLogsLoading(true);
           try {
-              const batch = writeBatch(db);
+              const batch = db.batch();
               selectedLogIds.forEach(id => {
-                  batch.delete(doc(db, "study_logs", id));
+                  batch.delete(db.collection("study_logs").doc(id));
               });
               await batch.commit();
               alert(`Đã xóa ${selectedLogIds.size} bản ghi nhật ký!`);
@@ -237,7 +235,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
 
       try {
           const lines = rawText.split('\n');
-          const batch = writeBatch(db);
+          const batch = db.batch();
           let count = 0;
 
           for (const line of lines) {
@@ -284,7 +282,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
               }
 
               if (word && meaning) {
-                  const docRef = doc(collection(db, "vocabulary"));
+                  const docRef = db.collection("vocabulary").doc();
                   batch.set(docRef, {
                       topicId: targetTopicId,
                       word,
@@ -318,9 +316,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
       if(!window.confirm(`Bạn có muốn nạp ${SAMPLE_VOCAB.length} từ vựng mẫu không?`)) return;
       setIsProcessing(true);
       try {
-          const batch = writeBatch(db);
+          const batch = db.batch();
           SAMPLE_VOCAB.forEach(v => {
-              const docRef = doc(collection(db, "vocabulary"));
+              const docRef = db.collection("vocabulary").doc();
               batch.set(docRef, { ...v, topicId: targetTopicId });
           });
           await batch.commit();

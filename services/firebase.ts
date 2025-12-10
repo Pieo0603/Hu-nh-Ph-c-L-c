@@ -1,6 +1,6 @@
-import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import firebase from "firebase/compat/app";
+import "firebase/compat/auth";
+import "firebase/compat/firestore";
 
 // --- CẤU HÌNH FIREBASE (demnguocthi) ---
 const firebaseConfig = {
@@ -13,12 +13,15 @@ const firebaseConfig = {
   measurementId: "G-MCV7RL8EL7"
 };
 
-// Initialize Firebase (Modular Standard)
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase (v9 Compat)
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+} else {
+  firebase.app(); // if already initialized, use that one
+}
 
-const db = getFirestore(app);
-// Truyền app trực tiếp vào getAuth để đảm bảo SDK nhận đúng instance đã cấu hình
-const auth = getAuth(app);
-const googleProvider = new GoogleAuthProvider();
+const db = firebase.firestore();
+const auth = firebase.auth();
+const googleProvider = new firebase.auth.GoogleAuthProvider();
 
-export { db, auth, googleProvider };
+export { db, auth, googleProvider, firebase };
