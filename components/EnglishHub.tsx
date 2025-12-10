@@ -247,7 +247,8 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user }) => {
       {selectedTopic && !loading && vocabList.length === 0 && mode !== 'code' && (
            <div className="text-center py-20 bg-white/5 rounded-2xl">
                <p className="text-gray-400">Chưa có từ vựng nào trong chủ đề này.</p>
-               <p className="text-xs text-gray-500 mt-2">Vào Admin > Upload Data để thêm từ.</p>
+               {/* FIX: Escaped the greater-than symbol */}
+               <p className="text-xs text-gray-500 mt-2">Vào Admin &gt; Upload Data để thêm từ.</p>
            </div>
       )}
 
