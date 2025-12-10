@@ -124,7 +124,10 @@ const App: React.FC = () => {
             })) as Message[];
             setMessages(msgs);
         }, (error) => {
-            console.error("Lỗi khi đọc dữ liệu Firebase:", error);
+            // Silently fail for Firestore permission errors in guest mode
+            if (error.code !== 'permission-denied') {
+                 console.error("Lỗi khi đọc dữ liệu Firebase:", error);
+            }
         });
         return () => unsubscribe();
     } catch (e) {
@@ -143,6 +146,7 @@ const App: React.FC = () => {
     });
 
     // Check for Redirect Result (Cần thiết cho mobile/redirect flow)
+    // Wrap in try-catch to ignore "operation-not-supported" error
     auth.getRedirectResult().then((result) => {
       if (result.user) {
         console.log("Đăng nhập qua Redirect thành công:", result.user.email);
@@ -150,10 +154,19 @@ const App: React.FC = () => {
         setShowLoginModal(false);
       }
     }).catch((error) => {
-      console.error("Lỗi khi nhận kết quả Redirect:", error);
-      // Không alert lỗi này để tránh spam nếu người dùng chỉ F5 trang
+      // FIX: Bắt và bỏ qua lỗi môi trường (Environment/Storage restriction)
+      const isEnvError = error.code === 'auth/operation-not-supported-in-this-environment' || 
+                         error.message?.includes('operation is not supported') ||
+                         error.code === 'auth/web-storage-unsupported';
+      
+      if (isEnvError) {
+         // Không in lỗi đỏ ra console nữa
+         console.warn("Lưu ý: Chế độ Redirect Auth bị hạn chế do môi trường trình duyệt (Chặn Cookie/Storage).");
+         return; 
+      }
+      
       if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/redirect-cancelled-by-user') {
-         // console.log(error);
+         console.error("Lỗi khi nhận kết quả Redirect:", error);
       }
     });
 
@@ -167,13 +180,22 @@ const App: React.FC = () => {
       } catch (e: any) {
           console.error("Popup login failed, attempting redirect...", e);
           
+          if (e.message === "Auth not supported") return; // Stop if mocked
+
           // Nếu Popup thất bại (bất kể lỗi gì, nhất là trên mobile/in-app browser), 
           // chuyển sang dùng Redirect (Chuyển trang).
           try {
               await auth.signInWithRedirect(googleProvider);
           } catch (e2: any) {
               console.error("Redirect failed", e2);
-              alert(`Đăng nhập thất bại. Vui lòng thử lại trên trình duyệt Chrome/Safari.\nLỗi: ${e.message}`);
+              const isEnvError = e2.code === 'auth/operation-not-supported-in-this-environment' || 
+                                 e2.message?.includes('operation is not supported');
+              
+              if (isEnvError) {
+                  alert("Trình duyệt hoặc môi trường hiện tại đang chặn đăng nhập Google.\nVui lòng thử mở bằng Chrome/Safari bình thường hoặc dùng chế độ 'Tên tạm' bên dưới.");
+              } else {
+                  alert(`Đăng nhập thất bại. Lỗi: ${e2.message}`);
+              }
           }
       }
   };

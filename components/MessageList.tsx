@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Message, ThemeConfig } from '../types';
-import { Quote, Maximize2, X, Download, Globe2 } from 'lucide-react';
+import { Quote, Maximize2, X, Download, Globe2, MessageCircle } from 'lucide-react';
 
 interface MessageListProps {
   messages: Message[];
@@ -32,93 +32,93 @@ const MessageList: React.FC<MessageListProps> = ({ messages, theme }) => {
     <>
       <div className="w-full max-w-7xl mx-auto px-4 pb-32 mt-12">
         {/* Header with Live Indicator */}
-        <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4 border-b border-white/10 pb-6">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-3">
-                <Globe2 size={28} className="text-blue-400" />
-                <h2 className={`text-2xl md:text-3xl font-bold text-white uppercase tracking-wider drop-shadow-md`}>
-                  Bảng Tin Công Khai
-                </h2>
-            </div>
-            <p className="text-gray-400 text-sm md:text-base ml-10">
-                Nơi lưu giữ những lời nhắn gửi đến toàn thể cộng đồng 2k8
-            </p>
+        <div className="flex flex-col items-center justify-center mb-10 text-center space-y-3">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md mb-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                </span>
+                <span className="text-xs font-bold text-green-400 uppercase tracking-widest">Public Live Feed</span>
           </div>
           
-          <div className="flex items-center gap-4 bg-black/20 px-4 py-2 rounded-full border border-white/5">
-             <div className="flex items-center gap-2">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                </span>
-                <span className="text-xs font-bold text-green-400 uppercase tracking-wider">Live Update</span>
-             </div>
-             <div className="h-4 w-[1px] bg-gray-600"></div>
-             <div className="text-sm text-gray-300 font-medium">
-                <span className={`${theme.text} font-bold text-lg`}>{messages.length}</span> lời chúc
-             </div>
-          </div>
+          <h2 className={`text-3xl md:text-5xl font-black text-white uppercase tracking-wider drop-shadow-lg flex items-center gap-3 justify-center`}>
+             <Globe2 className={`w-8 h-8 md:w-12 md:h-12 ${theme.text}`} />
+             BẢNG TIN CỘNG ĐỒNG
+          </h2>
+          
+          <p className="text-gray-400 text-sm md:text-base max-w-2xl mx-auto font-light">
+             Nơi lưu giữ {messages.length > 0 ? <span className="text-white font-bold">{messages.length}</span> : ''} lời nhắn gửi, lời chúc và những khoảnh khắc đáng nhớ của 2k8 trên toàn quốc.
+          </p>
         </div>
 
         {messages.length === 0 ? (
-           <div className="text-center py-24 bg-white/5 rounded-3xl border border-white/5 border-dashed">
-              <p className="text-gray-400 text-lg mb-2">Chưa có lời nhắn nào được ghim.</p>
-              <p className="text-sm text-gray-500">Hãy là người đầu tiên truyền động lực cho mọi người!</p>
+           <div className="flex flex-col items-center justify-center py-24 bg-white/5 rounded-3xl border border-white/5 border-dashed max-w-2xl mx-auto">
+              <div className="bg-white/10 p-4 rounded-full mb-4">
+                  <MessageCircle size={32} className="text-gray-400" />
+              </div>
+              <p className="text-gray-300 text-xl font-bold mb-2">Bảng tin đang trống</p>
+              <p className="text-sm text-gray-500">Hãy là người đầu tiên viết lên những dòng tâm sự này!</p>
            </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          /* MASONRY LAYOUT USING CSS COLUMNS */
+          <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6 mx-auto">
             {messages.map((msg) => {
               const { date, time } = formatDate(msg.timestamp);
               return (
                 <div 
                   key={msg.id} 
-                  className="hover-shine glass-panel rounded-2xl p-6 flex flex-col justify-between h-full group hover:-translate-y-1 transition-transform duration-300 border border-white/5 hover:border-white/20"
+                  className="break-inside-avoid mb-6 hover-shine glass-panel rounded-2xl p-5 flex flex-col group hover:-translate-y-1 transition-transform duration-300 border border-white/5 hover:border-white/20 bg-[#121212]/40 backdrop-blur-xl shadow-xl"
                 >
-                  {/* Body: Content & Image */}
-                  <div className="flex justify-between items-start gap-3 mb-4 flex-grow relative">
-                    {/* Quote & Text */}
-                    <div className="flex-1 min-w-0 z-10">
-                      <Quote size={20} className="text-gray-500 mb-3 rotate-180" />
-                      <p className="text-gray-200 text-[15px] font-medium leading-relaxed font-sans pl-1 break-words tracking-wide whitespace-pre-wrap">
-                        {msg.content}
-                      </p>
-                    </div>
-
-                    {/* Thumbnail Image */}
-                    {msg.imageUrl && (
-                      <div 
-                          className="relative flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-lg border border-white/10 bg-black overflow-hidden shadow-lg transform rotate-2 group-hover:rotate-0 transition-all duration-500 cursor-zoom-in group/image"
-                          onClick={() => setViewingImage(msg.imageUrl)}
-                      >
-                        <img 
-                          src={msg.imageUrl} 
-                          alt="attachment" 
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/image:opacity-100 transition-opacity flex items-center justify-center">
-                            <Maximize2 size={20} className="text-white drop-shadow-lg" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Footer: Author, Date */}
-                  <div className="pt-4 border-t border-white/5 flex items-end justify-between mt-auto">
-                      <div className="flex items-center gap-2.5">
-                        <img 
-                          src={msg.avatarUrl || `https://api.dicebear.com/7.x/notionists/svg?seed=${msg.author}`} 
-                          alt="avt" 
-                          className="w-8 h-8 rounded-full border border-white/10 bg-white/5"
-                        />
-                        <span className={`text-sm font-bold ${msg.isAnonymous ? 'text-gray-500' : theme.text} line-clamp-1 max-w-[100px]`}>
+                  {/* Header: Author Info */}
+                  <div className="flex items-center gap-3 mb-3 border-b border-white/5 pb-3">
+                      <img 
+                        src={msg.avatarUrl || `https://api.dicebear.com/7.x/notionists/svg?seed=${msg.author}`} 
+                        alt="avt" 
+                        className="w-9 h-9 rounded-full border border-white/10 bg-white/5 shadow-sm"
+                      />
+                      <div className="flex flex-col min-w-0">
+                        <span className={`text-sm font-bold ${msg.isAnonymous ? 'text-gray-400 italic' : theme.text} truncate`}>
                           {msg.author}
                         </span>
+                        <span className="text-[10px] text-gray-500 font-medium">
+                          {date} lúc {time}
+                        </span>
                       </div>
-                      
-                      <div className="flex flex-col items-end text-[10px] text-gray-500 font-bold leading-tight uppercase tracking-wider">
-                        <span>{date}</span>
-                        <span>{time}</span>
+                  </div>
+
+                  {/* Body: Content */}
+                  <div className="mb-4 relative z-10">
+                      {msg.content && (
+                        <div className="relative pl-2">
+                           <Quote size={14} className="absolute -left-1 -top-1 text-gray-600 rotate-180 opacity-50" />
+                           <p className="text-gray-200 text-[15px] leading-relaxed font-sans whitespace-pre-wrap break-words">
+                            {msg.content}
+                           </p>
+                        </div>
+                      )}
+                  </div>
+
+                  {/* Image Attachment (Full Width) */}
+                  {msg.imageUrl && (
+                    <div 
+                        className="relative w-full rounded-xl overflow-hidden border border-white/10 bg-black shadow-inner cursor-zoom-in group/image mt-1"
+                        onClick={() => setViewingImage(msg.imageUrl)}
+                    >
+                      <img 
+                        src={msg.imageUrl} 
+                        alt="attachment" 
+                        className="w-full h-auto object-cover transform group-hover/image:scale-105 transition-transform duration-700"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/image:opacity-100 transition-opacity flex items-center justify-center">
+                          <Maximize2 size={24} className="text-white drop-shadow-lg" />
                       </div>
+                    </div>
+                  )}
+
+                  {/* Footer Decoration */}
+                  <div className="mt-3 flex justify-end">
+                     <div className="h-1 w-12 rounded-full bg-white/5"></div>
                   </div>
                 </div>
               );

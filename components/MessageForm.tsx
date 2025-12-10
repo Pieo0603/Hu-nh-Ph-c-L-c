@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Send, Sparkles, User, X } from 'lucide-react';
+import { Camera, Send, Sparkles, User, X, PenTool } from 'lucide-react';
 import { generateWish } from '../services/geminiService';
 import { Message, ThemeConfig } from '../types';
 
@@ -82,7 +82,6 @@ const MessageForm: React.FC<MessageFormProps> = ({ onAddMessage, theme }) => {
         author: isAnonymous ? 'Người bí ẩn' : (name || 'Bạn học'),
         content,
         isAnonymous,
-        // Chỉ thêm imageUrl nếu có ảnh, tránh lỗi "Unsupported field value: undefined" của Firebase
         ...(image ? { imageUrl: image } : {}),
         avatarUrl: `https://api.dicebear.com/7.x/notionists/svg?seed=${isAnonymous ? 'anon' : name}`,
       });
@@ -90,7 +89,7 @@ const MessageForm: React.FC<MessageFormProps> = ({ onAddMessage, theme }) => {
       setContent('');
       setImage(undefined);
       if (fileInputRef.current) fileInputRef.current.value = '';
-      alert("Gửi lời chúc thành công! 🎉");
+      alert("Đã đăng lên bảng tin công khai! 🎉");
     } catch (error: any) {
       console.error("Lỗi gửi tin nhắn:", error);
       alert("Lỗi gửi tin: " + error.message);
@@ -98,16 +97,24 @@ const MessageForm: React.FC<MessageFormProps> = ({ onAddMessage, theme }) => {
   };
 
   return (
-    // Updated spacing: Less margin top on mobile (mt-8)
-    <div className="w-full max-w-lg mx-auto mt-8 md:mt-16 mb-20 px-4">
-      {/* Updated padding: Less inner padding on mobile (p-5 instead of p-8) and slightly smaller rounded corners on mobile */}
-      <div className={`glass-panel rounded-2xl md:rounded-3xl p-5 md:p-8 shadow-2xl transition-all duration-500 border border-white/10 hover:border-white/20`}>
+    <div className="w-full max-w-lg mx-auto mt-12 mb-12 px-4 relative z-20">
+      {/* Decorative Elements */}
+      <div className={`absolute -inset-1 rounded-[2rem] bg-gradient-to-r ${theme.gradientTitle} opacity-30 blur-xl transition-all duration-500`}></div>
+      
+      <div className={`relative bg-[#0f0c29]/80 backdrop-blur-2xl rounded-[1.5rem] p-6 shadow-2xl border border-white/10 overflow-hidden`}>
         
-        <h3 className={`text-xl font-bold text-center mb-6 md:mb-8 text-white tracking-wide`}>
-          Gửi một chút tâm sự nhỏ
-        </h3>
+        {/* Header Form */}
+        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-white/5">
+             <div className={`p-2.5 rounded-xl bg-gradient-to-br ${theme.buttonGradient} shadow-lg`}>
+                <PenTool size={20} className="text-white" />
+             </div>
+             <div>
+                <h3 className="text-lg font-bold text-white">Đăng bài công khai</h3>
+                <p className="text-xs text-gray-400">Chia sẻ cảm xúc, ảnh kỷ niệm với mọi người</p>
+             </div>
+        </div>
         
-        <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* Name Input */}
           <div className="relative group/input">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -115,22 +122,22 @@ const MessageForm: React.FC<MessageFormProps> = ({ onAddMessage, theme }) => {
             </div>
             <input
               type="text"
-              placeholder="Tên của bạn (để trống nếu muốn ẩn danh)"
+              placeholder="Tên của bạn (hoặc để trống)"
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={isAnonymous}
-              className={`w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-sm text-white placeholder-gray-500 focus:outline-none focus:bg-white/10 focus:border-white/30 transition-all ${isAnonymous ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`w-full bg-[#1a1a2e] border border-gray-700 rounded-xl py-3 pl-12 pr-4 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-${theme.hex} focus:ring-1 focus:ring-${theme.hex} transition-all ${isAnonymous ? 'opacity-50 cursor-not-allowed' : ''}`}
             />
           </div>
 
           {/* Message Input */}
           <div className="relative group/input">
             <textarea
-              placeholder="Gửi lời tâm sự, lời chúc, động viên đến các bạn thí sinh..."
+              placeholder="Bạn đang nghĩ gì? Gửi lời chúc, mục tiêu hoặc tâm sự..."
               rows={4}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              className={`w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-5 text-sm text-white placeholder-gray-500 focus:outline-none focus:bg-white/10 focus:border-white/30 transition-all resize-none pb-10`} // Added pb-10 to prevent text overlap with AI button
+              className={`w-full bg-[#1a1a2e] border border-gray-700 rounded-xl py-3 px-4 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-${theme.hex} focus:ring-1 focus:ring-${theme.hex} transition-all resize-none pb-12`} 
             />
             {/* AI Generator Button */}
             <button
@@ -140,17 +147,17 @@ const MessageForm: React.FC<MessageFormProps> = ({ onAddMessage, theme }) => {
               className={`absolute bottom-3 right-3 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-gray-300 transition-all flex items-center gap-1.5 text-[10px] font-bold border border-white/10 hover:border-white/30`}
             >
               <Sparkles size={12} className={isGenerating ? "animate-spin text-yellow-400" : "text-yellow-400"} />
-              {isGenerating ? 'Đang viết...' : 'AI Gợi ý'}
+              {isGenerating ? 'AI Viết hộ' : 'AI Gợi ý'}
             </button>
           </div>
 
           {/* File Upload & Options */}
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
             <div className="flex items-center gap-2 w-full sm:w-auto">
-               <label className={`cursor-pointer flex items-center gap-2 text-xs font-bold text-gray-400 hover:text-white transition-all bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/30 rounded-xl px-4 py-3 w-full sm:w-auto justify-center ${isCompressing ? 'opacity-50 pointer-events-none' : ''}`}>
+               <label className={`cursor-pointer flex items-center gap-2 text-xs font-bold text-gray-300 hover:text-white transition-all bg-[#1a1a2e] hover:bg-gray-700 border border-gray-700 rounded-xl px-4 py-3 w-full sm:w-auto justify-center ${isCompressing ? 'opacity-50 pointer-events-none' : ''}`}>
                   <Camera size={16} />
                   <span>
-                    {isCompressing ? 'Đang xử lý...' : (image ? 'Đổi ảnh khác' : 'Thêm ảnh')}
+                    {isCompressing ? 'Đang nén ảnh...' : (image ? 'Đổi ảnh' : 'Ảnh kỷ niệm')}
                   </span>
                   <input 
                     type="file" 
@@ -172,21 +179,22 @@ const MessageForm: React.FC<MessageFormProps> = ({ onAddMessage, theme }) => {
                )}
             </div>
 
-            <label className="flex items-center gap-3 cursor-pointer select-none px-3 py-2 rounded-xl hover:bg-white/5 transition-colors">
+            <label className="flex items-center gap-2 cursor-pointer select-none px-2 py-1 hover:bg-white/5 rounded-lg transition-colors">
               <input 
                 type="checkbox" 
                 checked={isAnonymous}
                 onChange={(e) => setIsAnonymous(e.target.checked)}
-                className={`w-4 h-4 rounded border-gray-600 bg-gray-700`}
+                className={`w-4 h-4 rounded border-gray-600 bg-gray-700 accent-pink-500`}
               />
-              <span className="text-xs font-bold text-gray-300">Gửi ẩn danh</span>
+              <span className="text-xs font-bold text-gray-400">Ẩn danh</span>
             </label>
           </div>
           
           {/* Image Preview */}
           {image && (
-            <div className="relative w-full h-40 bg-black/20 rounded-xl overflow-hidden border border-white/10">
+            <div className="relative w-full h-48 bg-black rounded-xl overflow-hidden border border-white/10 shadow-inner group">
                 <img src={image} alt="Preview" className="w-full h-full object-contain" />
+                <div className="absolute inset-0 bg-black/20 pointer-events-none"></div>
             </div>
           )}
 
@@ -194,10 +202,10 @@ const MessageForm: React.FC<MessageFormProps> = ({ onAddMessage, theme }) => {
           <button
             type="submit"
             disabled={isCompressing || isGenerating}
-            className={`w-full bg-gradient-to-r ${theme.buttonGradient} text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`w-full bg-gradient-to-r ${theme.buttonGradient} text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-${theme.id}/50 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wide text-sm`}
           >
-            <Send size={20} strokeWidth={2.5} />
-            <span className="tracking-wide">GỬI LỜI CHÚC</span>
+            <Send size={18} strokeWidth={2.5} />
+            <span>Đăng lên bảng tin</span>
           </button>
         </form>
       </div>
