@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <title>Đếm ngược THPT Quốc Gia 2026</title>
+    
+    <!-- FONTS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,900;1,400&family=Outfit:wght@300;400;500;600;700;800;900&family=Patrick+Hand&display=swap" rel="stylesheet">
+    
+    <!-- TAILWIND CSS CDN (Sử dụng bản CDN để chạy mượt mà trên mọi môi trường) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['"Be Vietnam Pro"', 'sans-serif'],
+              heading: ['"Outfit"', 'sans-serif'],
+              hand: ['"Patrick Hand"', 'cursive'],
+            },
+            colors: {
+              neon: {
+                orange: '#FF8C00',
+                gold: '#FFD700',
+              }
+            },
+            animation: {
+              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            }
+          }
+        }
+      }
+    </script>
+
+    <!-- CSS GLOBAL -->
+    <style>
+      body {
+        font-family: 'Be Vietnam Pro', sans-serif;
+        background-color: #0f0c29;
+        color: white;
+        overflow-x: hidden;
+      }
+      .font-hand { font-family: 'Patrick Hand', cursive; }
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: #0f0c29; }
+      ::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
+      ::-webkit-scrollbar-thumb:hover { background: #666; }
+      
+      .glass-panel {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+      }
+      .animate-spin-slow { animation: spin 8s linear infinite; }
+      @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+      .hover-shine { position: relative; overflow: hidden; }
+      .hover-shine::after {
+        content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
+        background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0) 100%);
+        transform: skewX(-25deg); pointer-events: none; z-index: 10; transition: none;
+      }
+      .hover-shine:hover::after { animation: shine 0.75s cubic-bezier(0.4, 0.0, 0.2, 1); }
+      @keyframes shine { 0% { left: -100%; } 100% { left: 200%; } }
+    </style>
+    
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://aistudiocdn.com/react@^19.2.1",
+        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+        "react/": "https://aistudiocdn.com/react@^19.2.1/",
+        "@google/genai": "https://aistudiocdn.com/@google/genai@^1.32.0",
+        "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
+        "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/",
+        "vite": "https://aistudiocdn.com/vite@^7.2.7",
+        "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.2"
+      }
+    }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

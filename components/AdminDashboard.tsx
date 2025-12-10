@@ -1,0 +1,566 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { Message, ThemeConfig, VocabItem } from '../types';
+import { X, Trash2, CheckSquare, Square, Search, Download, Filter, LogOut, Wrench, Lock, Lightbulb, Upload, FileText, Database, PlusCircle, Wand2, Info, BookOpen, RefreshCw } from 'lucide-react';
+import { db } from '../services/firebase';
+import { collection, addDoc, writeBatch, doc, query, getDocs, where } from 'firebase/firestore';
+
+interface AdminDashboardProps {
+  messages: Message[];
+  onDeleteMessages: (ids: string[]) => void;
+  onClose: () => void;
+  theme: ThemeConfig;
+}
+
+type AdminTab = 'messages' | 'upload' | 'vocab';
+
+// DỮ LIỆU MẪU
+const SAMPLE_VOCAB = [
+  { word: "calculator", type: "n", pronunciation: "/ˈkælkjuleɪtə(r)/", meaning: "máy tính, công cụ tính", level: "A2", synonyms: "", antonyms: "" },
+  { word: "carbon footprint", type: "n", pronunciation: "/ˈkɑːbən ˈfʊtprɪnt/", meaning: "tổng lượng khí thải carbon", level: "B2", synonyms: "", antonyms: "" },
+  { word: "detailed", type: "adj", pronunciation: "/ˈdiːteɪld/", meaning: "chi tiết", level: "B2", synonyms: "specific", antonyms: "general" }
+];
+
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessages, onClose, theme }) => {
+  const [activeTab, setActiveTab] = useState<AdminTab>('messages');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+
+  // Vocab Management State
+  const [vocabList, setVocabList] = useState<VocabItem[]>([]);
+  const [selectedVocabIds, setSelectedVocabIds] = useState<Set<string>>(new Set());
+  const [vocabLoading, setVocabLoading] = useState(false);
+  const [vocabFilterTopic, setVocabFilterTopic] = useState('all');
+
+  // Upload State
+  const [rawText, setRawText] = useState('');
+  const [targetTopicId, setTargetTopicId] = useState('topic_1');
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  // Modal State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState(false);
+  const [deleteMode, setDeleteMode] = useState<'messages' | 'vocab'>('messages');
+
+  // --- VOCAB FETCHING LOGIC ---
+  const fetchVocab = async () => {
+    setVocabLoading(true);
+    try {
+        let q;
+        if (vocabFilterTopic === 'all') {
+            q = query(collection(db, "vocabulary"));
+        } else {
+            q = query(collection(db, "vocabulary"), where("topicId", "==", vocabFilterTopic));
+        }
+        const snapshot = await getDocs(q);
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VocabItem));
+        setVocabList(data);
+        setSelectedVocabIds(new Set()); // Reset selection when filtering
+    } catch (error) {
+        console.error("Error fetching vocab:", error);
+    } finally {
+        setVocabLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'vocab') {
+        fetchVocab();
+    }
+  }, [activeTab, vocabFilterTopic]);
+
+  // --- FILTER & SORT MESSAGES ---
+  const filteredMessages = useMemo(() => {
+    let result = [...messages];
+    if (searchTerm) {
+      const lowerTerm = searchTerm.toLowerCase();
+      result = result.filter(
+        (msg) =>
+          msg.content.toLowerCase().includes(lowerTerm) ||
+          msg.author.toLowerCase().includes(lowerTerm)
+      );
+    }
+    result.sort((a, b) => {
+      if (sortOrder === 'newest') return b.timestamp - a.timestamp;
+      return a.timestamp - b.timestamp;
+    });
+    return result;
+  }, [messages, searchTerm, sortOrder]);
+
+  // --- HANDLERS ---
+  const toggleSelect = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) newSelected.delete(id);
+    else newSelected.add(id);
+    setSelectedIds(newSelected);
+  };
+
+  const selectAll = () => {
+    const allIds = filteredMessages.map((m) => m.id);
+    setSelectedIds(new Set(allIds));
+  };
+
+  const deselectAll = () => {
+    setSelectedIds(new Set());
+  };
+
+  // Vocab Selection
+  const toggleSelectVocab = (id: string) => {
+    const newSelected = new Set(selectedVocabIds);
+    if (newSelected.has(id)) newSelected.delete(id);
+    else newSelected.add(id);
+    setSelectedVocabIds(newSelected);
+  };
+
+  const selectAllVocab = () => {
+      if (selectedVocabIds.size === vocabList.length) {
+          setSelectedVocabIds(new Set());
+      } else {
+          setSelectedVocabIds(new Set(vocabList.map(v => v.id)));
+      }
+  };
+
+  const initiateDelete = (mode: 'messages' | 'vocab') => {
+    if (mode === 'messages' && selectedIds.size === 0) return;
+    if (mode === 'vocab' && selectedVocabIds.size === 0) return;
+    
+    setDeleteMode(mode);
+    setIsDeleteModalOpen(true);
+    setPasswordInput('');
+    setPasswordError(false);
+  };
+
+  const confirmDelete = async () => {
+    if (passwordInput === 'admin') {
+      if (deleteMode === 'messages') {
+          onDeleteMessages(Array.from(selectedIds));
+          setSelectedIds(new Set());
+      } else {
+          // Delete Vocab
+          setVocabLoading(true);
+          try {
+              const batch = writeBatch(db);
+              selectedVocabIds.forEach(id => {
+                  batch.delete(doc(db, "vocabulary", id));
+              });
+              await batch.commit();
+              alert(`Đã xóa ${selectedVocabIds.size} từ vựng!`);
+              fetchVocab(); // Refresh list
+          } catch (e) {
+              console.error(e);
+              alert("Lỗi khi xóa từ vựng.");
+          } finally {
+              setVocabLoading(false);
+          }
+      }
+      setIsDeleteModalOpen(false);
+    } else {
+      setPasswordError(true);
+    }
+  };
+
+  const handleExport = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(messages, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "wishes_backup.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString('vi-VN', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  };
+
+  // --- UPLOAD LOGIC ---
+  const handleProcessData = async () => {
+      if (!rawText.trim()) return;
+      setIsProcessing(true);
+
+      try {
+          const lines = rawText.split('\n');
+          const batch = writeBatch(db);
+          let count = 0;
+
+          for (const line of lines) {
+              const cleanLine = line.trim();
+              if (!cleanLine) continue;
+
+              let word = "", type = "", pronunciation = "", meaning = "", level = "B1", synonyms = "", antonyms = "";
+
+              if (cleanLine.includes('\t')) {
+                  const parts = cleanLine.split(/\t/);
+                  if (parts.length >= 2) {
+                      word = parts[0]?.trim();
+                      type = parts[1]?.trim();
+                      pronunciation = parts[2]?.trim();
+                      meaning = parts[3]?.trim();
+                      level = parts[4]?.trim() || "B1";
+                      synonyms = parts[5]?.trim() || "";
+                      antonyms = parts[6]?.trim() || "";
+                  }
+              } 
+              else {
+                  const phoneticMatch = cleanLine.match(/(\/.*?\/)/);
+                  if (phoneticMatch) {
+                      pronunciation = phoneticMatch[0];
+                      const pIndex = cleanLine.indexOf(pronunciation);
+                      const partBefore = cleanLine.substring(0, pIndex).trim();
+                      const lastSpaceIndex = partBefore.lastIndexOf(' ');
+                      
+                      if (lastSpaceIndex !== -1 && partBefore.length - lastSpaceIndex < 8) {
+                          word = partBefore.substring(0, lastSpaceIndex).trim();
+                          type = partBefore.substring(lastSpaceIndex + 1).trim();
+                      } else {
+                          word = partBefore;
+                      }
+
+                      let partAfter = cleanLine.substring(pIndex + pronunciation.length).trim();
+                      const levelMatch = partAfter.match(/\s(A1|A2|B1|B2|C1|C2)$/i);
+                      if (levelMatch) {
+                          level = levelMatch[1].toUpperCase();
+                          partAfter = partAfter.substring(0, levelMatch.index).trim();
+                      }
+                      meaning = partAfter;
+                  }
+              }
+
+              if (word && meaning) {
+                  const docRef = doc(collection(db, "vocabulary"));
+                  batch.set(docRef, {
+                      topicId: targetTopicId,
+                      word,
+                      type,
+                      pronunciation,
+                      meaning,
+                      level,
+                      synonyms,
+                      antonyms
+                  });
+                  count++;
+              }
+          }
+
+          if (count > 0) {
+              await batch.commit();
+              alert(`Thành công! Đã thêm ${count} từ vựng vào Chủ đề ${targetTopicId.split('_')[1]}.`);
+              setRawText('');
+          } else {
+              alert("Không nhận diện được dữ liệu.");
+          }
+      } catch (error) {
+          console.error("Lỗi nhập liệu:", error);
+          alert("Có lỗi xảy ra khi xử lý dữ liệu.");
+      } finally {
+          setIsProcessing(false);
+      }
+  };
+
+  const handleSeedData = async () => {
+      if(!window.confirm(`Bạn có muốn nạp ${SAMPLE_VOCAB.length} từ vựng mẫu không?`)) return;
+      setIsProcessing(true);
+      try {
+          const batch = writeBatch(db);
+          SAMPLE_VOCAB.forEach(v => {
+              const docRef = doc(collection(db, "vocabulary"));
+              batch.set(docRef, { ...v, topicId: targetTopicId });
+          });
+          await batch.commit();
+          alert(`Đã nạp xong mẫu!`);
+      } catch (e) {
+          console.error(e);
+          alert("Lỗi nạp mẫu.");
+      } finally {
+          setIsProcessing(false);
+      }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-[#1a1a2e] text-white overflow-hidden flex flex-col font-sans">
+      
+      {/* Delete Confirmation Modal */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+           <div className="bg-[#1e1b2e] rounded-2xl border border-pink-500/20 shadow-2xl w-full max-w-md overflow-hidden transform scale-100">
+              <div className="p-6 md:p-8 flex flex-col items-center text-center">
+                  <div className="mb-4 text-orange-400">
+                     <Lock size={32} />
+                  </div>
+                  <h3 className="text-xl font-bold text-red-500 mb-2">Xác nhận xóa {deleteMode === 'vocab' ? 'từ vựng' : 'tin nhắn'}</h3>
+                  <div className="w-full text-left mb-6">
+                    <label className="block text-xs font-semibold text-gray-400 mb-2 ml-1">Nhập mật khẩu:</label>
+                    <input 
+                      type="password" 
+                      value={passwordInput}
+                      onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(false); }}
+                      className={`w-full bg-[#2a2438] border ${passwordError ? 'border-red-500' : 'border-gray-600'} rounded-lg px-4 py-3 text-white`}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex gap-3 w-full">
+                     <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 py-2.5 rounded-lg border border-pink-500/30 text-pink-300">Bỏ cuộc</button>
+                     <button onClick={confirmDelete} className="flex-1 py-2.5 rounded-lg bg-slate-600 text-white shadow-lg">Xóa ngay</button>
+                  </div>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="bg-[#16213e] border-b border-gray-700 px-6 py-4 flex justify-between items-center shadow-md">
+        <div className="flex items-center gap-4">
+            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                <Wrench size={24} className="text-pink-400" />
+                Admin Panel
+            </h2>
+            <div className="flex bg-black/30 rounded-lg p-1 overflow-x-auto">
+                <button onClick={() => setActiveTab('messages')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'messages' ? 'bg-pink-600 text-white' : 'text-gray-400'}`}>Lời chúc</button>
+                <button onClick={() => setActiveTab('vocab')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'vocab' ? 'bg-pink-600 text-white' : 'text-gray-400'}`}>Quản lý Từ vựng</button>
+                <button onClick={() => setActiveTab('upload')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'upload' ? 'bg-pink-600 text-white' : 'text-gray-400'}`}>Nhập Excel</button>
+            </div>
+        </div>
+        <button onClick={onClose} className="px-4 py-2 bg-pink-600 rounded-lg flex items-center gap-2 text-sm font-semibold"><LogOut size={16} /> Thoát</button>
+      </div>
+
+      {/* CONTENT: UPLOAD TAB */}
+      {activeTab === 'upload' && (
+          <div className="p-8 max-w-5xl mx-auto w-full overflow-y-auto">
+              {/* ... (Giữ nguyên code upload cũ) ... */}
+              <div className="bg-[#1f2937] p-6 rounded-2xl border border-gray-700">
+                  <div className="flex justify-between items-start mb-6">
+                      <div>
+                        <h3 className="text-xl font-bold mb-2 flex items-center gap-2 text-green-400"><Database size={20} /> Nhập từ Excel</h3>
+                        <p className="text-gray-400 text-sm">
+                            Hãy sắp xếp file Excel của bạn theo đúng thứ tự cột bên dưới, sau đó <strong>Copy (Ctrl+C)</strong> và <strong>Dán (Ctrl+V)</strong> vào ô nhập liệu.
+                        </p>
+                      </div>
+                      <button onClick={handleSeedData} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold rounded-lg transition-all">
+                          Dùng dữ liệu mẫu
+                      </button>
+                  </div>
+                  
+                  {/* EXCEL COLUMN GUIDE */}
+                  <div className="mb-6 overflow-x-auto">
+                      <div className="flex min-w-max gap-1 pb-2">
+                          {[
+                              {id: 1, name: "Từ vựng (Word)", ex: "calculator", w: "w-32"},
+                              {id: 2, name: "Loại (n/v/adj)", ex: "n", w: "w-24"},
+                              {id: 3, name: "Phiên âm", ex: "/.../", w: "w-32"},
+                              {id: 4, name: "Nghĩa tiếng Việt", ex: "máy tính", w: "w-48"},
+                              {id: 5, name: "Level", ex: "B1", w: "w-20"},
+                              {id: 6, name: "Đồng nghĩa", ex: "compute", w: "w-32"},
+                              {id: 7, name: "Trái nghĩa", ex: "guess", w: "w-32"},
+                          ].map((col) => (
+                              <div key={col.id} className={`flex flex-col bg-black/40 border border-gray-600 rounded-lg p-3 ${col.w}`}>
+                                  <span className="text-[10px] text-gray-500 font-bold uppercase mb-1">Cột {col.id}</span>
+                                  <span className="text-xs font-bold text-white mb-1">{col.name}</span>
+                                  <span className="text-[10px] text-gray-400 italic">VD: {col.ex}</span>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+
+                  <div className="flex gap-4 mb-4">
+                      <div className="flex-1">
+                           <textarea 
+                            value={rawText}
+                            onChange={(e) => setRawText(e.target.value)}
+                            placeholder={`Dán nội dung từ Excel vào đây...\nVí dụ:\ncalculator	n	/ˈkælkjuleɪtə(r)/	máy tính	A2`}
+                            className="w-full h-48 bg-black/20 border border-gray-600 rounded-xl p-4 text-sm font-mono text-gray-300 focus:outline-none focus:border-green-500 whitespace-pre"
+                          />
+                      </div>
+                      <div className="w-64 flex flex-col gap-4">
+                          <div>
+                              <label className="block text-xs font-bold text-gray-400 mb-2 uppercase">Lưu vào chủ đề:</label>
+                              <select 
+                                value={targetTopicId}
+                                onChange={(e) => setTargetTopicId(e.target.value)}
+                                className="w-full bg-black/40 border border-gray-600 text-white rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 outline-none"
+                              >
+                                  {Array.from({length: 17}, (_, i) => (
+                                      <option key={i} value={`topic_${i+1}`}>Chủ đề {i+1}</option>
+                                  ))}
+                              </select>
+                          </div>
+                          <button 
+                            onClick={handleProcessData}
+                            disabled={isProcessing || !rawText.trim()}
+                            className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl font-bold text-white shadow-lg hover:opacity-90 transition-all flex flex-col items-center justify-center gap-1 disabled:opacity-50"
+                          >
+                              {isProcessing ? <div className="animate-spin h-5 w-5 border-2 border-white rounded-full border-t-transparent"></div> : <Upload size={24} />}
+                              <span>Thêm vào Database</span>
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* CONTENT: VOCABULARY MANAGEMENT TAB (NEW) */}
+      {activeTab === 'vocab' && (
+          <div className="flex flex-col h-full">
+               {/* Toolbar */}
+               <div className="p-6 space-y-4">
+                   <div className="flex flex-wrap gap-4 items-center bg-[#1f2937]/50 p-4 rounded-xl border border-gray-700 justify-between">
+                       <div className="flex items-center gap-4">
+                           <div className="flex items-center gap-2">
+                               <Filter size={16} className="text-gray-400" />
+                               <select 
+                                    value={vocabFilterTopic}
+                                    onChange={(e) => setVocabFilterTopic(e.target.value)}
+                                    className="bg-black/40 border border-gray-600 text-white rounded-lg px-3 py-1.5 text-sm focus:ring-1 focus:ring-purple-500 outline-none"
+                               >
+                                   <option value="all">Tất cả chủ đề</option>
+                                   {Array.from({length: 17}, (_, i) => (
+                                      <option key={i} value={`topic_${i+1}`}>Chủ đề {i+1}</option>
+                                   ))}
+                               </select>
+                           </div>
+                           <button onClick={fetchVocab} className="p-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors" title="Làm mới">
+                               <RefreshCw size={16} className={vocabLoading ? "animate-spin" : ""} />
+                           </button>
+                       </div>
+
+                       <div className="flex items-center gap-3">
+                           <span className="text-sm text-gray-400">Đã chọn: <span className="text-white font-bold">{selectedVocabIds.size}</span> / {vocabList.length}</span>
+                           <button onClick={selectAllVocab} className="px-3 py-1.5 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 rounded-lg text-xs font-bold border border-blue-600/30">
+                               {selectedVocabIds.size === vocabList.length ? 'Bỏ chọn' : 'Chọn tất cả'}
+                           </button>
+                           <button 
+                                onClick={() => initiateDelete('vocab')}
+                                disabled={selectedVocabIds.size === 0}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-bold border flex items-center gap-2 transition-all ${selectedVocabIds.size > 0 ? 'bg-red-500 text-white border-red-600 hover:bg-red-600 shadow-lg' : 'bg-gray-800 text-gray-500 border-gray-700 cursor-not-allowed'}`}
+                           >
+                               <Trash2 size={14} /> Xóa {selectedVocabIds.size} từ
+                           </button>
+                       </div>
+                   </div>
+               </div>
+
+               {/* Table Header */}
+               <div className="px-6 grid grid-cols-12 gap-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider pb-2 border-b border-gray-700 mx-6">
+                   <div className="col-span-1 text-center">Chọn</div>
+                   <div className="col-span-3">Từ vựng (Word)</div>
+                   <div className="col-span-4">Nghĩa (Meaning)</div>
+                   <div className="col-span-2">Loại/Phiên âm</div>
+                   <div className="col-span-2 text-right">Chủ đề</div>
+               </div>
+
+               {/* Vocab List */}
+               <div className="flex-grow overflow-y-auto px-6 pb-20 custom-scrollbar">
+                   {vocabLoading ? (
+                       <div className="flex justify-center py-20"><div className="animate-spin h-8 w-8 border-2 border-purple-500 rounded-full border-t-transparent"></div></div>
+                   ) : vocabList.length === 0 ? (
+                       <div className="text-center py-20 text-gray-500">Không tìm thấy từ vựng nào.</div>
+                   ) : (
+                       <div className="space-y-1 mt-2">
+                           {vocabList.map((vocab) => (
+                               <div 
+                                    key={vocab.id} 
+                                    className={`grid grid-cols-12 gap-4 items-center p-3 rounded-lg border transition-colors cursor-pointer text-sm ${selectedVocabIds.has(vocab.id) ? 'bg-purple-900/20 border-purple-500/50' : 'bg-transparent border-transparent hover:bg-white/5'}`}
+                                    onClick={() => toggleSelectVocab(vocab.id)}
+                               >
+                                   <div className="col-span-1 flex justify-center">
+                                       <div className={`w-4 h-4 rounded border flex items-center justify-center ${selectedVocabIds.has(vocab.id) ? 'bg-purple-500 border-purple-500' : 'border-gray-600'}`}>
+                                           {selectedVocabIds.has(vocab.id) && <CheckSquare size={10} className="text-white" />}
+                                       </div>
+                                   </div>
+                                   <div className="col-span-3 font-bold text-white truncate">{vocab.word}</div>
+                                   <div className="col-span-4 text-gray-300 truncate" title={vocab.meaning}>{vocab.meaning}</div>
+                                   <div className="col-span-2 text-gray-500 text-xs">
+                                       <span className="text-purple-400 font-bold">{vocab.type}</span> • {vocab.pronunciation}
+                                   </div>
+                                   <div className="col-span-2 text-right text-xs text-gray-500 bg-white/5 px-2 py-1 rounded w-fit ml-auto">
+                                       {vocab.topicId?.replace('topic_', 'Chủ đề ')}
+                                   </div>
+                               </div>
+                           ))}
+                       </div>
+                   )}
+               </div>
+          </div>
+      )}
+
+      {/* CONTENT: MESSAGES TAB */}
+      {activeTab === 'messages' && (
+        <>
+            {/* Toolbar */}
+            <div className="p-6 space-y-4">
+                {/* Actions Row */}
+                <div className="flex flex-wrap gap-3 items-center bg-[#1f2937]/50 p-3 rounded-xl border border-gray-700">
+                    <button onClick={selectAll} className="flex items-center gap-2 px-3 py-2 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 rounded-lg border border-emerald-600/30 text-xs font-semibold transition-all">
+                        <CheckSquare size={14} /> Chọn tất cả
+                    </button>
+                    <button onClick={deselectAll} className="flex items-center gap-2 px-3 py-2 bg-gray-600/20 text-gray-300 hover:bg-gray-600/30 rounded-lg border border-gray-600/30 text-xs font-semibold transition-all">
+                        <X size={14} /> Bỏ chọn tất cả
+                    </button>
+                    <div className="h-6 w-px bg-gray-700 mx-2"></div>
+                    <button 
+                        onClick={() => initiateDelete('messages')} 
+                        disabled={selectedIds.size === 0}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${selectedIds.size > 0 ? 'bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30 cursor-pointer' : 'bg-gray-800 text-gray-600 border-gray-700 cursor-not-allowed'}`}
+                    >
+                        <Trash2 size={14} /> Xóa đã chọn ({selectedIds.size})
+                    </button>
+                    <button onClick={handleExport} className="flex items-center gap-2 px-3 py-2 bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30 rounded-lg border border-cyan-600/30 text-xs font-semibold transition-all ml-auto">
+                        <Download size={14} /> Xuất đã chọn ({selectedIds.size > 0 ? selectedIds.size : messages.length})
+                    </button>
+                </div>
+
+                {/* Filter Row */}
+                <div className="flex gap-4">
+                    <div className="relative flex-grow">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                        <input 
+                            type="text" 
+                            placeholder="Tìm kiếm lời chúc..." 
+                            className="w-full bg-[#111827] border border-gray-700 rounded-lg py-2.5 pl-10 pr-4 text-sm text-gray-200 focus:ring-1 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Content Grid */}
+            <div className="flex-grow overflow-y-auto px-6 pb-20 custom-scrollbar">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {filteredMessages.map(msg => (
+                        <div 
+                            key={msg.id}
+                            onClick={() => toggleSelect(msg.id)}
+                            className={`relative p-4 rounded-xl border transition-all cursor-pointer group ${selectedIds.has(msg.id) ? 'bg-purple-900/20 border-purple-500 shadow-lg shadow-purple-500/10' : 'bg-[#1f2937] border-gray-800 hover:border-gray-600'}`}
+                        >
+                            <div className="absolute top-3 left-3 z-10">
+                                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${selectedIds.has(msg.id) ? 'bg-purple-500 border-purple-500 text-white' : 'border-gray-500 bg-black/40 group-hover:border-gray-300'}`}>
+                                    {selectedIds.has(msg.id) && <CheckSquare size={14} />}
+                                </div>
+                            </div>
+                            <div className="flex justify-between items-start pl-8 mb-2">
+                                <div className="flex flex-col">
+                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider line-clamp-1">{msg.author}</span>
+                                    <span className="text-[10px] text-gray-600">{formatDate(msg.timestamp)}</span>
+                                </div>
+                                {msg.imageUrl && (
+                                    <img src={msg.imageUrl} alt="thumb" className="w-10 h-10 object-cover rounded border border-gray-700" />
+                                )}
+                            </div>
+                            <div className="pl-8">
+                                <p className="text-sm text-gray-300 italic line-clamp-3">"{msg.content}"</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+export default AdminDashboard;
