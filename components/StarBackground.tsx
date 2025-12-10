@@ -33,13 +33,15 @@ const StarBackground: React.FC = () => {
 
     handleResize();
 
-    // 1. Sao nền (Chỉ giữ lại sao lấp lánh)
+    // 1. Khởi tạo sao với vị trí và vận tốc (vx, vy)
     const stars = Array.from({ length: STAR_COUNT }, () => ({
       x: Math.random() * width,
       y: Math.random() * height,
       radius: Math.random() * 1.5 + 0.5,
-      opacity: Math.random(),
-      speed: Math.random() * 0.05 + 0.005
+      twinkleSpeed: Math.random() * 0.05 + 0.005, // Tốc độ nhấp nháy
+      // Vận tốc di chuyển ngẫu nhiên (trôi nhẹ)
+      vx: (Math.random() - 0.5) * 0.5, 
+      vy: (Math.random() - 0.5) * 0.5
     }));
 
     const draw = () => {
@@ -53,11 +55,21 @@ const StarBackground: React.FC = () => {
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, width, height);
 
-      // Vẽ sao
+      // Vẽ sao và cập nhật vị trí
       stars.forEach(star => {
+        // Cập nhật vị trí
+        star.x += star.vx;
+        star.y += star.vy;
+
+        // Nếu sao bay ra khỏi màn hình thì cho nó xuất hiện lại ở phía đối diện (Wrap around)
+        if (star.x < 0) star.x = width;
+        if (star.x > width) star.x = 0;
+        if (star.y < 0) star.y = height;
+        if (star.y > height) star.y = 0;
+
         ctx.beginPath();
-        // Hiệu ứng nhấp nháy nhẹ
-        const alpha = Math.abs(Math.sin(Date.now() * 0.001 * star.speed + star.x));
+        // Hiệu ứng nhấp nháy nhẹ dựa trên thời gian
+        const alpha = Math.abs(Math.sin(Date.now() * 0.001 * star.twinkleSpeed + star.x));
         ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
         ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
         ctx.fill();

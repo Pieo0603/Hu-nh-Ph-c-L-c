@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Message, ThemeConfig, VocabItem } from '../types';
-import { X, Trash2, CheckSquare, Square, Search, Download, Filter, LogOut, Wrench, Lock, Lightbulb, Upload, FileText, Database, PlusCircle, Wand2, Info, BookOpen, RefreshCw } from 'lucide-react';
+import { Message, ThemeConfig, VocabItem, StudyLog } from '../types';
+import { X, Trash2, CheckSquare, Square, Search, Download, Filter, LogOut, Wrench, Lock, Lightbulb, Upload, FileText, Database, PlusCircle, Wand2, Info, BookOpen, RefreshCw, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { db } from '../services/firebase';
-import { collection, addDoc, writeBatch, doc, query, getDocs, where } from 'firebase/firestore';
+import { collection, addDoc, writeBatch, doc, query, getDocs, where, orderBy, limit } from 'firebase/firestore';
 
 interface AdminDashboardProps {
   messages: Message[];
@@ -11,7 +11,7 @@ interface AdminDashboardProps {
   theme: ThemeConfig;
 }
 
-type AdminTab = 'messages' | 'upload' | 'vocab';
+type AdminTab = 'messages' | 'upload' | 'vocab' | 'study_logs';
 
 // DỮ LIỆU MẪU
 const SAMPLE_VOCAB = [
@@ -32,6 +32,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
   const [vocabLoading, setVocabLoading] = useState(false);
   const [vocabFilterTopic, setVocabFilterTopic] = useState('all');
 
+  // Study Logs Management State
+  const [studyLogs, setStudyLogs] = useState<StudyLog[]>([]);
+  const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set());
+  const [logsLoading, setLogsLoading] = useState(false);
+
   // Upload State
   const [rawText, setRawText] = useState('');
   const [targetTopicId, setTargetTopicId] = useState('topic_1');
@@ -41,9 +46,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
-  const [deleteMode, setDeleteMode] = useState<'messages' | 'vocab'>('messages');
+  const [deleteMode, setDeleteMode] = useState<'messages' | 'vocab' | 'study_logs'>('messages');
 
-  // --- VOCAB FETCHING LOGIC ---
+  // --- FETCHING LOGIC ---
   const fetchVocab = async () => {
     setVocabLoading(true);
     try {
@@ -64,10 +69,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
     }
   };
 
+  const fetchStudyLogs = async () => {
+      setLogsLoading(true);
+      try {
+          // Fetch last 100 logs
+          const q = query(collection(db, "study_logs"), orderBy("timestamp", "desc"), limit(100));
+          const snapshot = await getDocs(q);
+          const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StudyLog));
+          setStudyLogs(data);
+          setSelectedLogIds(new Set());
+      } catch (error) {
+          console.error("Error fetching logs:", error);
+      } finally {
+          setLogsLoading(false);
+      }
+  };
+
   useEffect(() => {
-    if (activeTab === 'vocab') {
-        fetchVocab();
-    }
+    if (activeTab === 'vocab') fetchVocab();
+    if (activeTab === 'study_logs') fetchStudyLogs();
   }, [activeTab, vocabFilterTopic]);
 
   // --- FILTER & SORT MESSAGES ---
@@ -121,9 +141,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
       }
   };
 
-  const initiateDelete = (mode: 'messages' | 'vocab') => {
+  // Study Logs Selection
+  const toggleSelectLog = (id: string) => {
+      const newSelected = new Set(selectedLogIds);
+      if (newSelected.has(id)) newSelected.delete(id);
+      else newSelected.add(id);
+      setSelectedLogIds(newSelected);
+  };
+
+  const selectAllLogs = () => {
+      if (selectedLogIds.size === studyLogs.length) {
+          setSelectedLogIds(new Set());
+      } else {
+          setSelectedLogIds(new Set(studyLogs.map(l => l.id)));
+      }
+  };
+
+  const initiateDelete = (mode: 'messages' | 'vocab' | 'study_logs') => {
     if (mode === 'messages' && selectedIds.size === 0) return;
     if (mode === 'vocab' && selectedVocabIds.size === 0) return;
+    if (mode === 'study_logs' && selectedLogIds.size === 0) return;
     
     setDeleteMode(mode);
     setIsDeleteModalOpen(true);
@@ -136,8 +173,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
       if (deleteMode === 'messages') {
           onDeleteMessages(Array.from(selectedIds));
           setSelectedIds(new Set());
-      } else {
-          // Delete Vocab
+      } else if (deleteMode === 'vocab') {
           setVocabLoading(true);
           try {
               const batch = writeBatch(db);
@@ -146,12 +182,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
               });
               await batch.commit();
               alert(`Đã xóa ${selectedVocabIds.size} từ vựng!`);
-              fetchVocab(); // Refresh list
+              fetchVocab(); 
           } catch (e) {
               console.error(e);
               alert("Lỗi khi xóa từ vựng.");
           } finally {
               setVocabLoading(false);
+          }
+      } else if (deleteMode === 'study_logs') {
+          setLogsLoading(true);
+          try {
+              const batch = writeBatch(db);
+              selectedLogIds.forEach(id => {
+                  batch.delete(doc(db, "study_logs", id));
+              });
+              await batch.commit();
+              alert(`Đã xóa ${selectedLogIds.size} bản ghi nhật ký!`);
+              fetchStudyLogs();
+          } catch (e) {
+              console.error(e);
+              alert("Lỗi khi xóa nhật ký.");
+          } finally {
+              setLogsLoading(false);
           }
       }
       setIsDeleteModalOpen(false);
@@ -179,6 +231,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
 
   // --- UPLOAD LOGIC ---
   const handleProcessData = async () => {
+      // (Giữ nguyên logic cũ)
       if (!rawText.trim()) return;
       setIsProcessing(true);
 
@@ -291,7 +344,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
                   <div className="mb-4 text-orange-400">
                      <Lock size={32} />
                   </div>
-                  <h3 className="text-xl font-bold text-red-500 mb-2">Xác nhận xóa {deleteMode === 'vocab' ? 'từ vựng' : 'tin nhắn'}</h3>
+                  <h3 className="text-xl font-bold text-red-500 mb-2">
+                      Xác nhận xóa {deleteMode === 'vocab' ? 'từ vựng' : deleteMode === 'study_logs' ? 'nhật ký học' : 'tin nhắn'}
+                  </h3>
                   <div className="w-full text-left mb-6">
                     <label className="block text-xs font-semibold text-gray-400 mb-2 ml-1">Nhập mật khẩu:</label>
                     <input 
@@ -320,7 +375,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
             </h2>
             <div className="flex bg-black/30 rounded-lg p-1 overflow-x-auto">
                 <button onClick={() => setActiveTab('messages')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'messages' ? 'bg-pink-600 text-white' : 'text-gray-400'}`}>Lời chúc</button>
-                <button onClick={() => setActiveTab('vocab')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'vocab' ? 'bg-pink-600 text-white' : 'text-gray-400'}`}>Quản lý Từ vựng</button>
+                <button onClick={() => setActiveTab('vocab')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'vocab' ? 'bg-pink-600 text-white' : 'text-gray-400'}`}>Từ vựng</button>
+                <button onClick={() => setActiveTab('study_logs')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'study_logs' ? 'bg-pink-600 text-white' : 'text-gray-400'}`}>Nhật ký học</button>
                 <button onClick={() => setActiveTab('upload')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'upload' ? 'bg-pink-600 text-white' : 'text-gray-400'}`}>Nhập Excel</button>
             </div>
         </div>
@@ -401,7 +457,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
           </div>
       )}
 
-      {/* CONTENT: VOCABULARY MANAGEMENT TAB (NEW) */}
+      {/* CONTENT: VOCABULARY MANAGEMENT TAB */}
       {activeTab === 'vocab' && (
           <div className="flex flex-col h-full">
                {/* Toolbar */}
@@ -477,6 +533,91 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
                                    </div>
                                    <div className="col-span-2 text-right text-xs text-gray-500 bg-white/5 px-2 py-1 rounded w-fit ml-auto">
                                        {vocab.topicId?.replace('topic_', 'Chủ đề ')}
+                                   </div>
+                               </div>
+                           ))}
+                       </div>
+                   )}
+               </div>
+          </div>
+      )}
+
+      {/* CONTENT: STUDY LOGS MANAGEMENT TAB */}
+      {activeTab === 'study_logs' && (
+          <div className="flex flex-col h-full">
+               {/* Toolbar */}
+               <div className="p-6 space-y-4">
+                   <div className="flex flex-wrap gap-4 items-center bg-[#1f2937]/50 p-4 rounded-xl border border-gray-700 justify-between">
+                       <div className="flex items-center gap-4">
+                           <h3 className="text-white font-bold flex items-center gap-2">
+                               <Clock size={18} className="text-yellow-400" />
+                               Nhật ký học (100 log gần nhất)
+                           </h3>
+                           <button onClick={fetchStudyLogs} className="p-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors" title="Làm mới">
+                               <RefreshCw size={16} className={logsLoading ? "animate-spin" : ""} />
+                           </button>
+                       </div>
+
+                       <div className="flex items-center gap-3">
+                           <span className="text-sm text-gray-400">Đã chọn: <span className="text-white font-bold">{selectedLogIds.size}</span> / {studyLogs.length}</span>
+                           <button onClick={selectAllLogs} className="px-3 py-1.5 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 rounded-lg text-xs font-bold border border-blue-600/30">
+                               {selectedLogIds.size === studyLogs.length ? 'Bỏ chọn' : 'Chọn tất cả'}
+                           </button>
+                           <button 
+                                onClick={() => initiateDelete('study_logs')}
+                                disabled={selectedLogIds.size === 0}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-bold border flex items-center gap-2 transition-all ${selectedLogIds.size > 0 ? 'bg-red-500 text-white border-red-600 hover:bg-red-600 shadow-lg' : 'bg-gray-800 text-gray-500 border-gray-700 cursor-not-allowed'}`}
+                           >
+                               <Trash2 size={14} /> Xóa {selectedLogIds.size} dòng
+                           </button>
+                       </div>
+                   </div>
+               </div>
+
+               {/* Table Header */}
+               <div className="px-6 grid grid-cols-12 gap-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider pb-2 border-b border-gray-700 mx-6">
+                   <div className="col-span-1 text-center">Chọn</div>
+                   <div className="col-span-3">Người dùng</div>
+                   <div className="col-span-2">Môn học/Thời gian</div>
+                   <div className="col-span-4">Ghi chú</div>
+                   <div className="col-span-2 text-right">Ngày giờ</div>
+               </div>
+
+               {/* Log List */}
+               <div className="flex-grow overflow-y-auto px-6 pb-20 custom-scrollbar">
+                   {logsLoading ? (
+                       <div className="flex justify-center py-20"><div className="animate-spin h-8 w-8 border-2 border-yellow-500 rounded-full border-t-transparent"></div></div>
+                   ) : studyLogs.length === 0 ? (
+                       <div className="text-center py-20 text-gray-500">Chưa có nhật ký học nào.</div>
+                   ) : (
+                       <div className="space-y-1 mt-2">
+                           {studyLogs.map((log) => (
+                               <div 
+                                    key={log.id} 
+                                    className={`grid grid-cols-12 gap-4 items-center p-3 rounded-lg border transition-colors cursor-pointer text-sm ${selectedLogIds.has(log.id) ? 'bg-yellow-900/20 border-yellow-500/50' : 'bg-transparent border-transparent hover:bg-white/5'}`}
+                                    onClick={() => toggleSelectLog(log.id)}
+                               >
+                                   <div className="col-span-1 flex justify-center">
+                                       <div className={`w-4 h-4 rounded border flex items-center justify-center ${selectedLogIds.has(log.id) ? 'bg-yellow-500 border-yellow-500' : 'border-gray-600'}`}>
+                                           {selectedLogIds.has(log.id) && <CheckSquare size={10} className="text-black" />}
+                                       </div>
+                                   </div>
+                                   <div className="col-span-3 flex items-center gap-2 overflow-hidden">
+                                        <img src={log.userAvatar} className="w-6 h-6 rounded-full bg-gray-700" alt="" />
+                                        <div className="truncate font-bold text-white text-xs">{log.userName}</div>
+                                   </div>
+                                   <div className="col-span-2 text-gray-300">
+                                       <span className="text-yellow-400 font-bold">{log.subject}</span>
+                                       <div className="text-[10px] text-gray-500 flex items-center gap-1">
+                                            {log.durationMinutes}/{log.targetMinutes} phút
+                                            {log.isCompleted ? <CheckCircle size={10} className="text-green-500"/> : <AlertCircle size={10} className="text-orange-500"/>}
+                                       </div>
+                                   </div>
+                                   <div className="col-span-4 text-gray-400 text-xs italic truncate" title={log.notes}>
+                                       {log.notes || "Không có ghi chú"}
+                                   </div>
+                                   <div className="col-span-2 text-right text-[10px] text-gray-500">
+                                       {formatDate(log.timestamp)}
                                    </div>
                                </div>
                            ))}

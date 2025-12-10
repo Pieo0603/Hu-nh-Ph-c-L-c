@@ -20,6 +20,25 @@ interface UserTopicProgress {
     lastStudied: number;
 }
 
+// --- SOUND ASSETS ---
+// Sử dụng CDN mp3 ngắn gọn, nhẹ
+const SOUNDS = {
+    flip: 'https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3', // ĐỔI: Tiếng lật thẻ mới (Card Slide/Flick)
+    correct: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3', // Tiếng Ping đúng
+    wrong: 'https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3', // Tiếng Bleep sai
+    win: 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3' // Tiếng thắng lớn
+};
+
+const playSound = (type: keyof typeof SOUNDS) => {
+    try {
+        const audio = new Audio(SOUNDS[type]);
+        audio.volume = 0.5; // Giảm âm lượng một chút
+        audio.play().catch(e => console.log("Audio play blocked", e));
+    } catch (e) {
+        console.error("Audio error", e);
+    }
+};
+
 const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user }) => {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
@@ -152,9 +171,9 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user }) => {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-4 pb-20 pt-24 animate-in fade-in duration-500">
+    <div className="w-full max-w-5xl mx-auto px-4 pb-32 pt-24 animate-in fade-in duration-500">
       
-      {/* HEADER NAVIGATION */}
+      {/* HEADER: TITLE & BACK BUTTON */}
       {selectedTopic ? (
           <div className="flex items-center gap-4 mb-6">
               <button onClick={handleBackToMenu} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors">
@@ -163,12 +182,6 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user }) => {
               <div>
                   <h2 className="text-xl font-bold text-white">{selectedTopic.title}</h2>
                   <p className="text-xs text-gray-400">{selectedTopic.description}</p>
-              </div>
-              <div className="ml-auto flex gap-2 overflow-x-auto pb-1 max-w-[50%] md:max-w-none no-scrollbar">
-                  <button onClick={() => setMode('flashcard')} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${mode === 'flashcard' ? `bg-gradient-to-r ${theme.buttonGradient} text-white` : 'bg-white/10 text-gray-400'}`}>Flashcard</button>
-                  <button onClick={() => setMode('quiz')} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${mode === 'quiz' ? `bg-gradient-to-r ${theme.buttonGradient} text-white` : 'bg-white/10 text-gray-400'}`}>Trắc nghiệm</button>
-                  <button onClick={() => setMode('listening')} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${mode === 'listening' ? `bg-gradient-to-r ${theme.buttonGradient} text-white` : 'bg-white/10 text-gray-400'}`}>Nghe & Điền</button>
-                  <button onClick={() => setMode('code')} className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${mode === 'code' ? `bg-gradient-to-r ${theme.buttonGradient} text-white` : 'bg-white/10 text-gray-400'}`}>Code Snippet</button>
               </div>
           </div>
       ) : (
@@ -247,7 +260,6 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user }) => {
       {selectedTopic && !loading && vocabList.length === 0 && mode !== 'code' && (
            <div className="text-center py-20 bg-white/5 rounded-2xl">
                <p className="text-gray-400">Chưa có từ vựng nào trong chủ đề này.</p>
-               {/* FIX: Escaped the greater-than symbol */}
                <p className="text-xs text-gray-500 mt-2">Vào Admin &gt; Upload Data để thêm từ.</p>
            </div>
       )}
@@ -267,13 +279,35 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user }) => {
       {selectedTopic && mode === 'code' && (
           <CodeSnippetView topicId={selectedTopic.id} theme={theme} />
       )}
+
+      {/* BOTTOM NAVIGATION BAR (FIXED) */}
+      {selectedTopic && (
+          <div className="fixed bottom-4 left-4 right-4 z-40 bg-[#1a1a2e]/90 backdrop-blur-xl border border-white/10 rounded-2xl p-2 shadow-2xl flex justify-between md:justify-center gap-1 md:gap-4 overflow-x-auto no-scrollbar">
+              <button onClick={() => setMode('flashcard')} className={`flex-1 md:flex-none flex flex-col items-center justify-center py-2 px-4 rounded-xl transition-all ${mode === 'flashcard' ? `bg-white/10 text-white` : 'text-gray-400 hover:text-white'}`}>
+                  <BookOpen size={20} className={mode === 'flashcard' ? 'text-yellow-400' : ''} />
+                  <span className="text-[10px] font-bold mt-1">Học từ</span>
+              </button>
+              <button onClick={() => setMode('quiz')} className={`flex-1 md:flex-none flex flex-col items-center justify-center py-2 px-4 rounded-xl transition-all ${mode === 'quiz' ? `bg-white/10 text-white` : 'text-gray-400 hover:text-white'}`}>
+                  <HelpCircle size={20} className={mode === 'quiz' ? 'text-green-400' : ''} />
+                  <span className="text-[10px] font-bold mt-1">Trắc nghiệm</span>
+              </button>
+              <button onClick={() => setMode('listening')} className={`flex-1 md:flex-none flex flex-col items-center justify-center py-2 px-4 rounded-xl transition-all ${mode === 'listening' ? `bg-white/10 text-white` : 'text-gray-400 hover:text-white'}`}>
+                  <Volume2 size={20} className={mode === 'listening' ? 'text-blue-400' : ''} />
+                  <span className="text-[10px] font-bold mt-1">Nghe</span>
+              </button>
+              <button onClick={() => setMode('code')} className={`flex-1 md:flex-none flex flex-col items-center justify-center py-2 px-4 rounded-xl transition-all ${mode === 'code' ? `bg-white/10 text-white` : 'text-gray-400 hover:text-white'}`}>
+                  <Code size={20} className={mode === 'code' ? 'text-pink-400' : ''} />
+                  <span className="text-[10px] font-bold mt-1">Code</span>
+              </button>
+          </div>
+      )}
     </div>
   );
 };
 
 // --- SUB COMPONENTS ---
 
-// 1. USER STATS VIEW (NEW DASHBOARD)
+// 1. USER STATS VIEW
 const UserStatsView: React.FC<{ progress: Record<string, UserTopicProgress>, theme: ThemeConfig }> = ({ progress, theme }) => {
     // 1. Calculate Aggregates
     const allProgress = Object.values(progress) as UserTopicProgress[];
@@ -292,7 +326,6 @@ const UserStatsView: React.FC<{ progress: Record<string, UserTopicProgress>, the
     const totalHours = (totalSeconds / 3600).toFixed(1);
     
     // Streak Logic (Approximate based on lastStudied timestamps of different topics)
-    // In a real app, we'd store a daily log. Here we check "Studied Today" simply.
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const hasStudiedToday = allProgress.some(p => p.lastStudied >= startOfToday);
@@ -412,7 +445,7 @@ const UserStatsView: React.FC<{ progress: Record<string, UserTopicProgress>, the
     );
 };
 
-// 2. FLASHCARD (Updated with Save Logic & Timer)
+// 2. FLASHCARD (Updated with Auto-Pronounce & Save Logic & Timer)
 const FlashcardView: React.FC<{ 
     vocabList: VocabItem[], 
     theme: ThemeConfig, 
@@ -431,6 +464,23 @@ const FlashcardView: React.FC<{
     }, [onSaveTime]);
 
     const currentWord = vocabList[currentIndex];
+
+    // AUTO PRONOUNCE LOGIC
+    useEffect(() => {
+        if (currentWord) {
+            // Delay slightly to let the card transition complete or flip happen
+            const timer = setTimeout(() => {
+                const utterance = new SpeechSynthesisUtterance(currentWord.word);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.8;
+                // Only speak if not flipped (looking at English word) or just switched
+                if (!isFlipped) {
+                    window.speechSynthesis.speak(utterance);
+                }
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [currentIndex, currentWord, isFlipped]);
 
     // CSS Styles for 3D Effect
     const containerStyle: React.CSSProperties = {
@@ -461,9 +511,18 @@ const FlashcardView: React.FC<{
         transform: 'rotateY(180deg)',
     };
 
+    const handleFlip = () => {
+        playSound('flip');
+        setIsFlipped(!isFlipped);
+    };
+
     const handleGrade = (status: 'memorized' | 'learning') => {
         // Save to Firebase
         onSaveProgress(currentWord.id, status);
+
+        // Sound Effect
+        if (status === 'memorized') playSound('correct');
+        else playSound('wrong');
 
         setIsFlipped(false);
         setTimeout(() => {
@@ -485,38 +544,39 @@ const FlashcardView: React.FC<{
                 Thẻ {currentIndex + 1} / {vocabList.length}
             </div>
             
-            <div className="w-full aspect-[4/5] md:aspect-square mb-8 cursor-pointer group select-none" style={containerStyle} onClick={() => setIsFlipped(!isFlipped)}>
+            {/* THAY ĐỔI: Giảm chiều cao Flashcard trên mobile (h-56) */}
+            <div className="w-full h-56 md:h-96 mb-6 cursor-pointer group select-none" style={containerStyle} onClick={handleFlip}>
                 <div style={cardStyle}>
                     
-                    {/* FRONT SIDE - Giao diện trắng sạch như hình */}
-                    <div style={faceStyle} className="bg-white flex flex-col items-center justify-center p-8 relative overflow-hidden">
+                    {/* FRONT SIDE */}
+                    <div style={faceStyle} className="bg-white flex flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden">
                         
-                        {/* Type Indicator (Dấu gạch nhỏ góc trái trên) */}
-                        <div className="absolute top-8 left-8 flex flex-col items-start gap-1">
+                        {/* Type Indicator */}
+                        <div className="absolute top-4 left-6 md:top-8 md:left-8 flex flex-col items-start gap-1">
                              <div className="w-8 h-1.5 bg-gray-200 rounded-full"></div>
                              <span className="text-gray-400 text-xs font-bold uppercase tracking-wide mt-1">
                                 {currentWord.type}
                              </span>
                         </div>
                         
-                        {/* Audio Button - Màu vàng nổi bật góc phải */}
+                        {/* Audio Button */}
                         <button 
                             onClick={speak} 
-                            className="absolute top-8 right-8 w-12 h-12 bg-yellow-400 hover:bg-yellow-500 text-white rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 z-20 active:scale-95"
+                            className="absolute top-4 right-6 md:top-8 md:right-8 w-10 h-10 md:w-12 md:h-12 bg-yellow-400 hover:bg-yellow-500 text-white rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 z-20 active:scale-95"
                             title="Nghe phát âm"
                         >
-                            <Volume2 size={22} fill="currentColor" strokeWidth={2.5} />
+                            <Volume2 size={20} fill="currentColor" strokeWidth={2.5} />
                         </button>
                         
-                        <div className="flex flex-col items-center justify-center h-full text-center mt-6 w-full">
-                            {/* Từ vựng chính */}
-                            <h3 className="text-4xl md:text-5xl font-extrabold text-[#1a1a2e] mb-4 leading-tight tracking-tight break-words max-w-full">
+                        <div className="flex flex-col items-center justify-center h-full text-center mt-2 w-full">
+                            {/* Từ vựng chính - Giảm size chữ */}
+                            <h3 className="text-3xl md:text-5xl font-extrabold text-[#1a1a2e] mb-2 leading-tight tracking-tight break-words max-w-full">
                                 {currentWord.word}
                             </h3>
                             
                             {/* Phiên âm */}
                             {currentWord.pronunciation && (
-                                <p className="text-lg text-gray-500 font-medium font-serif bg-gray-100 px-4 py-1.5 rounded-full">
+                                <p className="text-base md:text-lg text-gray-500 font-medium font-serif bg-gray-100 px-4 py-1 rounded-full">
                                     {currentWord.pronunciation}
                                 </p>
                             )}
@@ -530,27 +590,27 @@ const FlashcardView: React.FC<{
                     </div>
 
                     {/* BACK SIDE */}
-                    <div style={backFaceStyle} className="bg-white flex flex-col items-center justify-center p-8 border-4 border-indigo-50">
+                    <div style={backFaceStyle} className="bg-white flex flex-col items-center justify-center p-4 md:p-8 border-4 border-indigo-50">
                          <div className="flex flex-col items-center justify-center h-full text-center w-full">
-                            <h3 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6 leading-relaxed">
+                            <h3 className="text-xl md:text-3xl font-bold text-gray-800 mb-4 leading-relaxed line-clamp-3">
                                 {currentWord.meaning}
                             </h3>
                             
-                            <div className="w-full bg-gray-50 p-5 rounded-2xl text-left space-y-3 shadow-inner">
+                            <div className="w-full bg-gray-50 p-3 md:p-5 rounded-2xl text-left space-y-2 md:space-y-3 shadow-inner">
                                  <div className="flex items-center gap-3 text-sm text-gray-700 border-b border-gray-200 pb-2">
                                      <span className="font-bold text-indigo-500 min-w-[60px]">Cấp độ:</span> 
                                      <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold">{currentWord.level}</span>
                                  </div>
                                  {currentWord.synonyms && (
-                                     <div className="flex items-start gap-3 text-sm text-gray-700">
+                                     <div className="flex items-start gap-3 text-xs md:text-sm text-gray-700">
                                          <span className="font-bold text-green-600 min-w-[60px]">ĐN:</span> 
-                                         <span className="italic">{currentWord.synonyms}</span>
+                                         <span className="italic line-clamp-1">{currentWord.synonyms}</span>
                                      </div>
                                  )}
                                  {currentWord.antonyms && (
-                                     <div className="flex items-start gap-3 text-sm text-gray-700">
+                                     <div className="flex items-start gap-3 text-xs md:text-sm text-gray-700">
                                          <span className="font-bold text-red-500 min-w-[60px]">TN:</span> 
-                                         <span className="italic">{currentWord.antonyms}</span>
+                                         <span className="italic line-clamp-1">{currentWord.antonyms}</span>
                                      </div>
                                  )}
                             </div>
@@ -563,14 +623,14 @@ const FlashcardView: React.FC<{
             <div className="grid grid-cols-2 gap-4 w-full px-2">
                 <button 
                     onClick={() => handleGrade('learning')}
-                    className="flex flex-col items-center justify-center gap-1 py-4 rounded-2xl bg-[#1e1e2e] border border-red-500/30 hover:bg-red-500/10 text-red-400 font-bold transition-all active:scale-95 hover:border-red-500"
+                    className="flex flex-col items-center justify-center gap-1 py-3 md:py-4 rounded-2xl bg-[#1e1e2e] border border-red-500/30 hover:bg-red-500/10 text-red-400 font-bold transition-all active:scale-95 hover:border-red-500"
                 >
                     <Meh size={24} />
                     <span>Chưa nhớ</span>
                 </button>
                 <button 
                     onClick={() => handleGrade('memorized')}
-                    className="flex flex-col items-center justify-center gap-1 py-4 rounded-2xl bg-[#1e1e2e] border border-green-500/30 hover:bg-green-500/10 text-green-400 font-bold transition-all active:scale-95 shadow-lg shadow-green-900/20 hover:border-green-500"
+                    className="flex flex-col items-center justify-center gap-1 py-3 md:py-4 rounded-2xl bg-[#1e1e2e] border border-green-500/30 hover:bg-green-500/10 text-green-400 font-bold transition-all active:scale-95 shadow-lg shadow-green-900/20 hover:border-green-500"
                 >
                     <Smile size={24} />
                     <span>Đã nhớ</span>
@@ -580,7 +640,7 @@ const FlashcardView: React.FC<{
     );
 };
 
-// 2. QUIZ (Updated with Score Saving & Timer)
+// 2. QUIZ (Redesigned for Mobile)
 const QuizView: React.FC<{ 
     vocabList: VocabItem[], 
     theme: ThemeConfig,
@@ -621,10 +681,13 @@ const QuizView: React.FC<{
         setSelected(ans);
         
         if (ans === question.meaning) {
+            playSound('correct');
             setScore(s => s + 10);
             setTimeout(() => {
                 nextQuestion();
             }, 1000);
+        } else {
+            playSound('wrong');
         }
     };
 
@@ -633,58 +696,86 @@ const QuizView: React.FC<{
             setQIndex(prev => prev + 1);
         } else {
             setIsFinished(true);
+            playSound('win'); // Thắng lớn
             // Save final score
             onSaveScore(score);
         }
     };
 
+    const speak = () => {
+        const u = new SpeechSynthesisUtterance(question.word);
+        u.lang='en-US'; 
+        window.speechSynthesis.speak(u);
+    }
+
     if (isFinished) {
         return (
-            <div className="text-center py-10">
-                <div className="inline-block p-6 rounded-full bg-yellow-500/20 mb-4 animate-bounce">
-                    <Trophy size={48} className="text-yellow-400" />
+            <div className="text-center py-10 animate-in fade-in zoom-in duration-300">
+                <div className="inline-block p-6 rounded-full bg-yellow-500/20 mb-6 animate-bounce">
+                    <Trophy size={64} className="text-yellow-400" />
                 </div>
-                <h2 className="text-3xl font-bold text-white mb-2">Hoàn thành!</h2>
-                <p className="text-gray-400 mb-6">Bạn đạt được {score} điểm.</p>
-                <button onClick={() => { setQIndex(0); setScore(0); setIsFinished(false); }} className={`px-8 py-3 rounded-full bg-gradient-to-r ${theme.buttonGradient} font-bold text-white shadow-lg`}>
+                <h2 className="text-4xl font-black text-white mb-2">Hoàn thành!</h2>
+                <p className="text-gray-400 mb-8 text-lg">Bạn đạt được <span className="text-yellow-400 font-bold">{score}</span> điểm.</p>
+                <button onClick={() => { setQIndex(0); setScore(0); setIsFinished(false); }} className={`w-full max-w-xs px-8 py-4 rounded-full bg-gradient-to-r ${theme.buttonGradient} font-bold text-white shadow-xl text-lg hover:scale-105 transition-transform`}>
                     Làm lại
                 </button>
             </div>
         );
     }
 
+    // Progress Bar Calculation
+    const progressPercent = ((qIndex + 1) / vocabList.length) * 100;
+
     return (
-        <div className="max-w-xl mx-auto">
-            <div className="flex justify-between items-center mb-6">
-                <span className="text-sm text-gray-400">Câu hỏi {qIndex + 1}/{vocabList.length}</span>
-                <span className="text-sm font-bold text-yellow-400">Điểm: {score}</span>
+        <div className="max-w-md mx-auto flex flex-col h-full">
+            {/* Top Bar: Progress & Score */}
+            <div className="flex flex-col gap-2 mb-2">
+                 {/* Progress Bar */}
+                 <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                     <div className={`h-full bg-gradient-to-r ${theme.buttonGradient} transition-all duration-500`} style={{width: `${progressPercent}%`}}></div>
+                 </div>
+                 <div className="flex justify-between items-center text-xs font-bold uppercase">
+                     <span className="text-gray-500">Câu {qIndex + 1}/{vocabList.length}</span>
+                     <span className="text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded">Điểm: {score}</span>
+                 </div>
             </div>
 
-            <div className="glass-panel p-8 rounded-3xl mb-8 text-center border-2 border-white/10 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Từ này nghĩa là gì?</p>
-                <h3 className="text-4xl font-black text-white mb-2">{question.word}</h3>
-                <p className="text-gray-400 italic mt-1 font-serif text-lg">{question.pronunciation}</p>
-                <button onClick={() => { const u = new SpeechSynthesisUtterance(question.word); u.lang='en-US'; window.speechSynthesis.speak(u); }} className="mt-4 p-3 bg-white/5 rounded-full hover:bg-white/10 text-gray-300 transition-all hover:scale-110">
-                    <Volume2 size={20} />
-                </button>
+            {/* Question Section - THAY ĐỔI: Giảm padding và size chữ */}
+            <div className="flex-grow flex flex-col items-center justify-center py-2 mb-4 relative">
+                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 bg-white/5 px-3 py-1 rounded-full">Chọn nghĩa đúng</p>
+                 
+                 <div className="text-center relative z-10">
+                    <h3 className="text-2xl md:text-5xl font-black text-white mb-1 drop-shadow-xl">{question.word}</h3>
+                    <div className="flex items-center justify-center gap-2 mt-1">
+                        <span className="text-gray-400 font-serif text-sm md:text-lg bg-black/30 px-3 py-1 rounded-lg">{question.pronunciation}</span>
+                        <button onClick={speak} className="p-1.5 bg-white/10 rounded-full hover:bg-white/20 text-gray-300 transition-colors">
+                            <Volume2 size={16} />
+                        </button>
+                    </div>
+                 </div>
+                 
+                 {/* Background decoration */}
+                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/5 to-transparent blur-3xl -z-0"></div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3">
+            {/* Options Grid - THAY ĐỔI: Giảm gap và padding nút */}
+            <div className="flex flex-col gap-2 pb-12">
                 {options.map((opt, i) => {
-                    let btnClass = "bg-white/5 hover:bg-white/10 border-gray-700";
+                    let btnClass = "bg-[#1e1e2e] border-[#333] hover:bg-[#2a2a3e] active:scale-[0.98]";
                     let icon = null;
 
                     if (selected) {
                         if (opt === question.meaning) {
-                            btnClass = "bg-green-500/20 border-green-500 text-green-400";
-                            icon = <Check size={20} />;
+                            btnClass = "bg-green-500 border-green-400 text-white shadow-[0_0_15px_rgba(34,197,94,0.5)]";
+                            icon = <Check size={18} className="text-white" />;
                         }
                         else if (opt === selected) {
-                            btnClass = "bg-red-500/20 border-red-500 text-red-400";
-                            icon = <X size={20} />;
+                            btnClass = "bg-red-500 border-red-400 text-white opacity-90";
+                            icon = <X size={18} className="text-white" />;
                         }
-                        else btnClass = "opacity-50 border-gray-800";
+                        else btnClass = "opacity-40 bg-black border-transparent";
+                    } else {
+                        btnClass += " text-gray-200 border-2";
                     }
 
                     return (
@@ -692,9 +783,13 @@ const QuizView: React.FC<{
                             key={i}
                             onClick={() => handleAnswer(opt)}
                             disabled={!!selected}
-                            className={`p-4 rounded-xl border-2 text-left font-bold transition-all flex items-center justify-between group ${btnClass}`}
+                            className={`
+                                relative p-3 md:p-5 rounded-xl text-left font-bold text-sm md:text-lg transition-all duration-200 
+                                flex items-center justify-between group shadow-lg
+                                ${btnClass}
+                            `}
                         >
-                            <span>{opt}</span>
+                            <span className="line-clamp-2">{opt}</span>
                             {icon}
                         </button>
                     );
@@ -702,8 +797,8 @@ const QuizView: React.FC<{
             </div>
              
             {selected && selected !== question.meaning && (
-                 <button onClick={nextQuestion} className={`w-full mt-6 py-3 rounded-xl bg-gray-700 text-white font-bold shadow-lg animate-in slide-in-from-bottom-2`}>
-                     Câu tiếp theo <ChevronRight size={16} className="inline ml-1" />
+                 <button onClick={nextQuestion} className={`w-full py-4 rounded-2xl bg-white text-black font-extrabold shadow-xl hover:bg-gray-200 transition-transform active:scale-95 animate-in slide-in-from-bottom-4 mb-4`}>
+                     Câu tiếp theo <ChevronRight size={20} className="inline ml-1" />
                  </button>
             )}
         </div>
@@ -736,11 +831,13 @@ const ListeningView: React.FC<{ vocabList: VocabItem[], theme: ThemeConfig }> = 
         e.preventDefault();
         if (input.toLowerCase().trim() === currentWord.word.toLowerCase()) {
             setStatus('correct');
+            playSound('correct');
             setTimeout(() => {
                  setIndex((i) => (i + 1) % vocabList.length);
             }, 1500);
         } else {
             setStatus('wrong');
+            playSound('wrong');
         }
     };
 

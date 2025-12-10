@@ -72,7 +72,10 @@ const MessageForm: React.FC<MessageFormProps> = ({ onAddMessage, theme }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim()) return;
+    if (!content.trim()) {
+        alert("Bạn chưa nhập nội dung lời chúc!");
+        return;
+    }
 
     try {
       await onAddMessage({
@@ -190,7 +193,7 @@ const MessageForm: React.FC<MessageFormProps> = ({ onAddMessage, theme }) => {
           <button
             type="submit"
             disabled={isCompressing || isGenerating}
-            className={`w-full bg-gradient-to-r ${theme.buttonGradient} text-white font-bold py-4 rounded-2xl shadow-lg transform hover:-translate-y-1 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`w-full bg-gradient-to-r ${theme.buttonGradient} text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             <Send size={20} strokeWidth={2.5} />
             <span className="tracking-wide">GỬI LỜI CHÚC</span>

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/firebase';
-import { collection, addDoc, query, orderBy, onSnapshot, limit, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, onSnapshot, limit, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { StudyLog, ThemeConfig, LeaderboardEntry, AppUser } from '../types';
-import { Play, Pause, Square, CheckCircle, Clock, BookOpen, LogOut, LayoutList, Trophy, User as UserIcon, AlertCircle, ArrowRight, History, Lock } from 'lucide-react';
+import { Play, Pause, Square, CheckCircle, Clock, BookOpen, LogOut, LayoutList, Trophy, User as UserIcon, AlertCircle, ArrowRight, History, Lock, Trash2 } from 'lucide-react';
 
 interface StudyTrackerProps {
   theme: ThemeConfig;
@@ -181,18 +181,57 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
     }
   };
 
-  // Helper for Flip Clock Style
-  const FlipCard = ({ value }: { value: number }) => {
+  const handleDeleteLog = async (logId: string) => {
+      if (!window.confirm("Bạn có chắc chắn muốn xóa bản ghi thời gian này không?")) return;
+      
+      try {
+          await deleteDoc(doc(db, "study_logs", logId));
+          // Update local state immediately for better UX
+          setUserHistory(prev => prev.filter(log => log.id !== logId));
+          // Optional: Update global logs if needed, though they update via onSnapshot
+      } catch (e) {
+          console.error("Error deleting log:", e);
+          alert("Lỗi khi xóa. Vui lòng thử lại.");
+      }
+  };
+
+  // --- FLIP CARD ANIMATION COMPONENT ---
+  const FlipCard = ({ value, label }: { value: number, label?: string }) => {
       const valStr = value < 10 ? `0${value}` : `${value}`;
+      
       return (
-          <div className="relative bg-[#050505] rounded-lg w-36 h-52 md:w-72 md:h-[26rem] flex items-center justify-center overflow-hidden border border-[#222]">
-             <div className="absolute top-1/2 left-0 w-full h-[2px] bg-[#000] z-10"></div>
-             {/* Changed font-mono to font-heading (Outfit) for better aesthetics */}
-             <span className="font-heading text-[5.5rem] md:text-[15rem] font-bold text-[#e6e6e6] z-0 tracking-tighter leading-none">
-                 {valStr}
-             </span>
-             <div className="absolute top-1/2 left-0 w-1 md:w-2 h-2 md:h-4 bg-[#111] rounded-r-full -translate-y-1/2 z-20"></div>
-             <div className="absolute top-1/2 right-0 w-1 md:w-2 h-2 md:h-4 bg-[#111] rounded-l-full -translate-y-1/2 z-20"></div>
+          <div className="flex flex-col items-center gap-2">
+            <div className="relative w-24 h-32 md:w-40 md:h-56 lg:w-48 lg:h-64 bg-[#111] rounded-lg perspective shadow-2xl border border-white/10 group">
+                {/* Static Background Number */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="font-heading text-6xl md:text-8xl lg:text-9xl font-bold text-[#333]">
+                        {valStr}
+                    </span>
+                </div>
+                
+                {/* Top Half */}
+                <div className="absolute inset-0 h-1/2 overflow-hidden bg-[#1e1e1e] rounded-t-lg border-b border-black z-10 flex items-end justify-center">
+                    <span className="font-heading text-6xl md:text-8xl lg:text-9xl font-bold text-white translate-y-1/2">
+                        {valStr}
+                    </span>
+                </div>
+                
+                {/* Bottom Half */}
+                <div className="absolute top-1/2 inset-x-0 bottom-0 overflow-hidden bg-[#1a1a1a] rounded-b-lg border-t border-black/50 z-10 flex items-start justify-center shadow-inner">
+                    <span className="font-heading text-6xl md:text-8xl lg:text-9xl font-bold text-white -translate-y-1/2">
+                        {valStr}
+                    </span>
+                </div>
+                
+                {/* Flip Line */}
+                <div className="absolute top-1/2 left-0 w-full h-[1px] bg-black z-20 shadow-sm"></div>
+                
+                {/* Screw Heads decoration */}
+                <div className="absolute top-2 left-2 w-1.5 h-1.5 bg-[#444] rounded-full shadow-inner z-20"></div>
+                <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-[#444] rounded-full shadow-inner z-20"></div>
+                <div className="absolute bottom-2 left-2 w-1.5 h-1.5 bg-[#444] rounded-full shadow-inner z-20"></div>
+                <div className="absolute bottom-2 right-2 w-1.5 h-1.5 bg-[#444] rounded-full shadow-inner z-20"></div>
+            </div>
           </div>
       );
   };
@@ -204,28 +243,38 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
       const totalTargetSeconds = targetMinutes * 60;
       let remainingSeconds = totalTargetSeconds - elapsedSeconds;
       if (remainingSeconds < 0) remainingSeconds = 0;
-      const displayMinutes = Math.floor(remainingSeconds / 60);
-      const displaySeconds = remainingSeconds % 60;
+      
+      const hours = Math.floor(remainingSeconds / 3600);
+      const minutes = Math.floor((remainingSeconds % 3600) / 60);
+      const seconds = remainingSeconds % 60;
 
       return (
           <div className="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center text-white overflow-hidden">
-              <div className="flex flex-col items-center gap-2 mb-8 md:mb-16 animate-in slide-in-from-top-10 duration-700">
+              <div className="flex flex-col items-center gap-2 mb-4 md:mb-8 animate-in slide-in-from-top-10 duration-700">
                   <span className="text-xs md:text-sm font-bold tracking-[0.3em] text-gray-500 uppercase">ĐANG HỌC</span>
                   <div className="inline-flex items-center gap-3 px-6 py-2 rounded-full border border-white/20 bg-white/5">
                       <BookOpen size={18} className={theme.text} />
                       <span className="text-xl md:text-3xl font-bold text-white uppercase tracking-wider">{subject}</span>
                   </div>
               </div>
-              <div className="flex justify-center items-center gap-4 md:gap-8 mb-12 md:mb-20 scale-90 md:scale-100">
-                  <FlipCard value={displayMinutes} />
-                  <div className="flex flex-col gap-6 md:gap-12 opacity-50">
-                      <div className="w-4 h-4 md:w-6 md:h-6 rounded-full bg-[#333]"></div>
-                      <div className="w-4 h-4 md:w-6 md:h-6 rounded-full bg-[#333]"></div>
+              
+              {/* FLIP CLOCK CONTAINER */}
+              <div className="flex justify-center items-center gap-2 md:gap-4 mb-8 md:mb-12 scale-75 md:scale-90 lg:scale-100 origin-center">
+                  <FlipCard value={hours} label="Giờ" />
+                  <div className="flex flex-col gap-2 md:gap-4 opacity-50 pt-4">
+                      <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-[#555]"></div>
+                      <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-[#555]"></div>
                   </div>
-                  <FlipCard value={displaySeconds} />
+                  <FlipCard value={minutes} label="Phút" />
+                  <div className="flex flex-col gap-2 md:gap-4 opacity-50 pt-4">
+                      <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-[#555]"></div>
+                      <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-[#555]"></div>
+                  </div>
+                  <FlipCard value={seconds} label="Giây" />
               </div>
-              <div className="w-full max-w-2xl px-6 flex flex-col items-center gap-8">
-                  <div className="flex w-full justify-between px-8 md:px-20 text-gray-400 font-mono text-sm md:text-xl border-t border-white/10 pt-6">
+
+              <div className="w-full max-w-2xl px-6 flex flex-col items-center gap-6">
+                  <div className="flex w-full justify-between px-8 md:px-20 text-gray-400 font-mono text-xs md:text-sm border-t border-white/10 pt-4">
                       <div className="flex flex-col items-center gap-1">
                           <span className="text-[10px] uppercase tracking-widest opacity-50">Bắt đầu</span>
                           <span className="text-white font-bold">{startTimeStr}</span>
@@ -237,23 +286,25 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
                           </span>
                       </div>
                   </div>
-                  <div className="text-center max-w-xl h-12">
-                      <p className="text-white/80 text-lg md:text-2xl font-hand transition-opacity duration-1000">"{currentQuote}"</p>
+                  <div className="text-center max-w-xl h-10 px-4">
+                      <p className="text-white/80 text-sm md:text-lg font-hand transition-opacity duration-1000 line-clamp-2">"{currentQuote}"</p>
                   </div>
-                  <div className="flex justify-center gap-8 mt-2">
+                  
+                  {/* Smaller Controls - Updated size w-16 h-16 to fit PC screens better */}
+                  <div className="flex justify-center gap-6 mt-2">
                       {!isTimerRunning ? (
                           remainingSeconds > 0 && (
-                            <button onClick={() => setIsTimerRunning(true)} className={`w-20 h-20 rounded-full bg-black border-2 flex items-center justify-center text-white shadow-lg transition-all transform hover:scale-110 ${theme.border} group`}>
-                                <Play size={32} fill="white" className={`${theme.text} group-hover:fill-current`} />
+                            <button onClick={() => setIsTimerRunning(true)} className={`w-16 h-16 md:w-20 md:h-20 rounded-full bg-black border-2 flex items-center justify-center text-white shadow-lg transition-all transform hover:scale-110 ${theme.border} group`}>
+                                <Play size={24} fill="white" className={`${theme.text} group-hover:fill-current`} />
                             </button>
                           )
                       ) : (
-                          <button onClick={() => setIsTimerRunning(false)} className="w-20 h-20 rounded-full bg-black border-2 border-yellow-600 flex items-center justify-center text-white shadow-lg transition-all transform hover:scale-110 group">
-                             <Pause size={32} fill="white" className="text-yellow-500 group-hover:fill-current" />
+                          <button onClick={() => setIsTimerRunning(false)} className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-black border-2 border-yellow-600 flex items-center justify-center text-white shadow-lg transition-all transform hover:scale-110 group">
+                             <Pause size={24} fill="white" className="text-yellow-500 group-hover:fill-current" />
                           </button>
                       )}
-                      <button onClick={finishSession} className="w-20 h-20 rounded-full bg-black border-2 border-red-600 flex items-center justify-center text-white shadow-lg transition-all transform hover:scale-110 group">
-                         <Square size={28} fill="white" className="text-red-500 group-hover:fill-current" />
+                      <button onClick={finishSession} className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-black border-2 border-red-600 flex items-center justify-center text-white shadow-lg transition-all transform hover:scale-110 group">
+                         <Square size={20} fill="white" className="text-red-500 group-hover:fill-current" />
                       </button>
                   </div>
               </div>
@@ -483,7 +534,7 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
                                        {/* Timeline Dot */}
                                        <div className={`absolute left-[10px] top-4 w-2.5 h-2.5 rounded-full border-2 border-[#0f0c29] ${log.isCompleted ? 'bg-green-500' : 'bg-orange-500'}`}></div>
                                        
-                                       <div className="hover-shine glass-panel p-4 rounded-xl border border-white/5 hover:border-white/20 transition-all">
+                                       <div className="hover-shine glass-panel p-4 rounded-xl border border-white/5 hover:border-white/20 transition-all relative">
                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                                                <div className="flex items-center gap-2">
                                                     <span className="bg-white/10 text-[10px] font-bold px-2 py-0.5 rounded text-gray-300">{log.subject}</span>
@@ -493,12 +544,21 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
                                                         {new Date(log.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
                                                     </span>
                                                </div>
-                                               <div className="flex items-center gap-2">
+                                               <div className="flex items-center gap-3">
                                                    {log.isCompleted ? (
                                                        <span className="text-[10px] font-bold text-green-400 flex items-center gap-1"><CheckCircle size={12} /> Đạt</span>
                                                    ) : (
                                                        <span className="text-[10px] font-bold text-orange-400 flex items-center gap-1"><AlertCircle size={12} /> Miss</span>
                                                    )}
+                                                   
+                                                   {/* DELETE BUTTON */}
+                                                   <button 
+                                                      onClick={() => handleDeleteLog(log.id)}
+                                                      className="p-1.5 rounded bg-white/5 hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
+                                                      title="Xóa lịch sử này"
+                                                   >
+                                                      <Trash2 size={12} />
+                                                   </button>
                                                </div>
                                            </div>
                                            

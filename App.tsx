@@ -9,12 +9,12 @@ import StudyTracker from './components/StudyTracker'; // This is now conceptuall
 import EnglishHub from './components/EnglishHub'; // New English Learning Component
 import MusicTab from './components/MusicTab';
 import { Message, ThemeConfig, AppUser } from './types';
-import { Settings, Home, Palette, Music, Timer, BrainCircuit, LogOut, LogIn, User as UserIcon, X, ArrowRight } from 'lucide-react';
+import { Settings, Home, Palette, Music, Timer, BrainCircuit, LogOut, LogIn, User as UserIcon, X, ArrowRight, Edit3, Camera } from 'lucide-react';
 
 // Firebase imports
 import { db, auth, googleProvider } from './services/firebase';
 import { collection, addDoc, onSnapshot, query, orderBy, doc, deleteDoc, writeBatch } from 'firebase/firestore';
-import { signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
+import { signInWithPopup, signOut, onAuthStateChanged, User, updateProfile } from 'firebase/auth';
 
 // Use a fixed date for THPT 2026 (Approximately late June)
 const EXAM_DATE = new Date('2026-06-27T07:30:00');
@@ -98,6 +98,12 @@ const App: React.FC = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [guestNameInput, setGuestNameInput] = useState('');
 
+  // Edit Profile State
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editAvatarSeed, setEditAvatarSeed] = useState('');
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+
   // YouTube State
   const [youtubeVideo, setYoutubeVideo] = useState<{id: string, title: string, channel: string, cover: string} | null>(null);
 
@@ -166,6 +172,43 @@ const App: React.FC = () => {
       setFirebaseUser(null);
   };
 
+  // --- LOGIC CẬP NHẬT PROFILE ---
+  const openEditProfile = () => {
+    if (currentUser) {
+        setEditName(currentUser.displayName || '');
+        // Thử trích xuất seed từ URL cũ nếu có, nếu không thì lấy tên
+        const currentUrl = currentUser.photoURL || '';
+        const seedMatch = currentUrl.match(/seed=([^&]*)/);
+        setEditAvatarSeed(seedMatch ? seedMatch[1] : (currentUser.displayName || 'user'));
+        setShowEditProfile(true);
+    }
+  };
+
+  const handleUpdateProfile = async () => {
+      if (!firebaseUser) return; // Chỉ cho phép update nếu là user thật (Google)
+      if (!editName.trim()) {
+          alert("Tên không được để trống!");
+          return;
+      }
+      setIsUpdatingProfile(true);
+      try {
+          const newPhotoURL = `https://api.dicebear.com/7.x/notionists/svg?seed=${editAvatarSeed}`;
+          await updateProfile(firebaseUser, {
+              displayName: editName,
+              photoURL: newPhotoURL
+          });
+          // Force UI update bằng cách set lại firebaseUser (dù onAuthStateChanged sẽ tự bắt)
+          setFirebaseUser({ ...firebaseUser, displayName: editName, photoURL: newPhotoURL });
+          setShowEditProfile(false);
+          alert("Cập nhật hồ sơ thành công!");
+      } catch (error) {
+          console.error("Error updating profile:", error);
+          alert("Lỗi khi cập nhật hồ sơ.");
+      } finally {
+          setIsUpdatingProfile(false);
+      }
+  };
+
   const handleAddMessage = async (newMsg: Omit<Message, 'id' | 'timestamp'>) => {
       await addDoc(collection(db, "wishes"), {
         ...newMsg,
@@ -202,21 +245,22 @@ const App: React.FC = () => {
            {/* LEFT: USER AUTH INFO */}
            <div className="flex items-center">
               {currentUser ? (
-                  <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-md hover:bg-white/20 transition-all cursor-pointer group shadow-lg" onClick={() => setActiveTab('timer')}>
+                  <div className="flex items-center gap-2 bg-white/10 pl-2 pr-3 py-1.5 rounded-full border border-white/10 backdrop-blur-md hover:bg-white/20 transition-all cursor-pointer group shadow-lg" onClick={openEditProfile}>
                        <img 
                           src={currentUser.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser.displayName}`} 
                           alt="Avt"
-                          className="w-6 h-6 rounded-full border border-white/30" 
+                          className="w-7 h-7 rounded-full border border-white/30 bg-black/20" 
                        />
                        <span className="text-xs font-bold text-white max-w-[80px] sm:max-w-[120px] truncate hidden sm:block">
                           {currentUser.displayName}
                        </span>
+                       <div className="w-[1px] h-4 bg-white/20 mx-1"></div>
                        <button 
                           onClick={(e) => { e.stopPropagation(); handleGlobalLogout(); }} 
-                          className="p-1 rounded-full bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-colors ml-1" 
+                          className="p-1 rounded-full text-red-400 hover:text-white hover:bg-red-500/50 transition-colors" 
                           title="Đăng xuất"
                        >
-                          <LogOut size={12} />
+                          <LogOut size={14} />
                        </button>
                   </div>
               ) : (
@@ -230,8 +274,8 @@ const App: React.FC = () => {
               )}
            </div>
 
-           {/* CENTER: TABS */}
-           <div className="absolute left-1/2 transform -translate-x-1/2 flex gap-1 bg-black/60 backdrop-blur-xl p-1 rounded-full border border-white/10 shadow-2xl">
+           {/* CENTER: TABS - Updated positioning for mobile */}
+           <div className="absolute left-1/2 transform -translate-x-1/2 top-14 md:top-3 flex gap-1 bg-black/60 backdrop-blur-xl p-1 rounded-full border border-white/10 shadow-2xl">
               <button 
                 onClick={() => setActiveTab('home')}
                 className={`flex items-center gap-2 px-3 md:px-5 py-2 rounded-full transition-all duration-300 text-xs md:text-sm font-bold ${activeTab === 'home' ? `bg-white text-black shadow-lg` : 'text-gray-400 hover:text-white'}`}
@@ -368,6 +412,81 @@ const App: React.FC = () => {
                 </div>
             </div>
         </div>
+      )}
+
+      {/* EDIT PROFILE MODAL (NEW) */}
+      {showEditProfile && (
+          <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <div className="bg-[#1e1e2e] rounded-3xl w-full max-w-sm border border-white/10 shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-indigo-500/20 to-transparent pointer-events-none"></div>
+                  <button onClick={() => setShowEditProfile(false)} className="absolute top-4 right-4 p-2 bg-white/5 hover:bg-white/10 rounded-full text-white/50 hover:text-white transition-colors z-10">
+                      <X size={20} />
+                  </button>
+
+                  <div className="p-6 pt-8 flex flex-col items-center">
+                      <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                          <Edit3 size={18} className="text-indigo-400" /> Chỉnh sửa hồ sơ
+                      </h3>
+
+                      {/* Avatar Preview & Selection */}
+                      <div className="relative mb-6 group">
+                          <img 
+                            src={`https://api.dicebear.com/7.x/notionists/svg?seed=${editAvatarSeed}`} 
+                            alt="Avatar Preview" 
+                            className="w-24 h-24 rounded-full border-4 border-[#2a2a3e] bg-white shadow-xl"
+                          />
+                          <button 
+                             onClick={() => setEditAvatarSeed(Math.random().toString(36).substring(7))}
+                             className="absolute bottom-0 right-0 p-2 bg-indigo-500 hover:bg-indigo-600 rounded-full text-white shadow-lg transition-transform hover:scale-110 border border-[#1e1e2e]"
+                             title="Đổi avatar ngẫu nhiên"
+                          >
+                             <Camera size={14} />
+                          </button>
+                      </div>
+
+                      <div className="w-full space-y-4">
+                          <div>
+                              <label className="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Tên hiển thị</label>
+                              <input 
+                                  type="text" 
+                                  value={editName} 
+                                  onChange={(e) => setEditName(e.target.value)}
+                                  className="w-full bg-black/30 border border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                              />
+                          </div>
+                          
+                          {/* Seed Input (Optional advanced) */}
+                          <div>
+                              <label className="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Mã Avatar (Seed)</label>
+                              <div className="flex gap-2">
+                                  <input 
+                                      type="text" 
+                                      value={editAvatarSeed} 
+                                      onChange={(e) => setEditAvatarSeed(e.target.value)}
+                                      className="flex-grow bg-black/30 border border-gray-600 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                                  />
+                              </div>
+                              <p className="text-[10px] text-gray-500 mt-1 ml-1">Nhập bất kỳ chữ gì để tạo avatar mới.</p>
+                          </div>
+
+                          <button 
+                              onClick={handleUpdateProfile}
+                              disabled={isUpdatingProfile}
+                              className="w-full py-3 mt-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                          >
+                              {isUpdatingProfile ? <div className="animate-spin w-4 h-4 border-2 border-white rounded-full border-t-transparent"></div> : <ArrowRight size={18} />}
+                              <span>Lưu thay đổi</span>
+                          </button>
+                      </div>
+
+                      {!firebaseUser && (
+                          <p className="text-xs text-red-400 mt-4 text-center bg-red-500/10 p-2 rounded-lg">
+                              * Bạn đang dùng tài khoản khách. Thay đổi này chỉ lưu trên trình duyệt hiện tại.
+                          </p>
+                      )}
+                  </div>
+              </div>
+          </div>
       )}
 
       {/* Main Admin Dashboard Overlay */}
