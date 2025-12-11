@@ -44,7 +44,10 @@ const ChatInput: React.FC<ChatInputProps> = ({ khiGuiTin, dangXuLy, cauHinhGiaoD
 
   // Hàm xử lý khi dán (Paste) ảnh từ Clipboard
   const xuLyDanAnh = (e: React.ClipboardEvent) => {
-      const item = Array.from(e.clipboardData.items).find(i => i.type.startsWith('image'));
+      // Ép kiểu any để tránh lỗi TS: Property 'type' does not exist on type 'unknown'
+      const items = Array.from(e.clipboardData.items) as any[];
+      const item = items.find(i => i.type.startsWith('image'));
+      
       if (item) {
           e.preventDefault();
           const file = item.getAsFile();

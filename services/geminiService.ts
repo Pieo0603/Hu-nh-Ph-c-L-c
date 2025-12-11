@@ -6,8 +6,9 @@ import { GoogleGenAI } from "@google/genai";
 export const generateWish = async (): Promise<string> => {
   try {
     const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-        return "Lỗi: Thiếu API Key.";
+    if (!apiKey || apiKey.includes("AIzaSyAcdOdg1NXhgdvQHMP4aFwwS21tL56Y82c")) {
+         // Key mặc định thường bị hết hạn, cảnh báo nhẹ nhưng vẫn thử gọi
+         console.warn("Đang dùng Key mặc định, có thể bị lỗi.");
     }
 
     // Initialize Gemini client with API key from environment variable directly
@@ -35,8 +36,9 @@ export interface ChatMessage {
 export const getChatResponse = async (history: ChatMessage[], newMessage: string, image?: string): Promise<string> => {
     const apiKey = process.env.API_KEY;
     
+    // Kiểm tra sơ bộ
     if (!apiKey) {
-        return "⚠️ Lỗi hệ thống: Không tìm thấy API Key. Vui lòng kiểm tra cấu hình.";
+        return "⚠️ Lỗi: Chưa cấu hình API Key. Vui lòng tạo file .env và thêm VITE_API_KEY=...";
     }
 
     try {
@@ -74,10 +76,17 @@ export const getChatResponse = async (history: ChatMessage[], newMessage: string
     } catch (error: any) {
         console.error("Chat Error:", error);
         
-        if (error.message?.includes('400') || error.message?.includes('API key')) {
-             return "⚠️ Lỗi API Key hoặc Ảnh không hợp lệ (Quá lớn?).";
+        // Phân loại lỗi để báo cho người dùng dễ hiểu hơn
+        const msg = error.toString();
+
+        if (msg.includes('400') || msg.includes('API key')) {
+             return "⚠️ **Lỗi API Key**: Key hiện tại không hợp lệ hoặc đã hết hạn.\n\n👉 **Cách sửa**: \n1. Vào `aistudio.google.com` lấy key mới.\n2. Tạo file `.env` ở thư mục gốc.\n3. Thêm dòng: `VITE_API_KEY=KEY_CUA_BAN`.\n4. Chạy lại dự án.";
         }
+
+        if (msg.includes('429') || msg.includes('Quota')) {
+            return "⚠️ **Hết lượt dùng**: API Key này đã dùng quá giới hạn hôm nay. Hãy thử lại mai hoặc đổi Key mới nhé.";
+       }
         
-        return "Mạng lag quá rùi. Bạn kiểm tra lại wifi xem sao nha!";
+        return "Mạng lag hoặc lỗi hệ thống rồi. Bạn thử lại sau chút xíu nha! 😵‍💫";
     }
 };
