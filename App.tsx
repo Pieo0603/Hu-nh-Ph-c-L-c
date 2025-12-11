@@ -8,8 +8,9 @@ import AdminDashboard from './components/AdminDashboard';
 import StudyTracker from './components/StudyTracker'; // This is now conceptually the "Timer"
 import EnglishHub from './components/EnglishHub'; // New English Learning Component
 import MusicTab from './components/MusicTab';
+import AiAssistant from './components/AiAssistant'; // IMPORT AI ASSISTANT
 import { Message, ThemeConfig, AppUser } from './types';
-import { Settings, Home, Palette, Music, Timer, BrainCircuit, LogOut, LogIn, User as UserIcon, X, ArrowRight, Edit3, Camera } from 'lucide-react';
+import { Settings, Home, Palette, Music, Timer, BrainCircuit, LogOut, LogIn, User as UserIcon, X, ArrowRight, Edit3, Camera, BookOpen, Calculator, ScrollText } from 'lucide-react';
 
 // FIX: Import firebase from 'firebase/compat/app' for Types
 import firebase from 'firebase/compat/app';
@@ -92,6 +93,9 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('home');
   const [showThemePicker, setShowThemePicker] = useState(false);
   
+  // Learning Tab Sub-State
+  const [learningSubject, setLearningSubject] = useState<'menu' | 'english'>('menu');
+
   // Auth State - Now properly typed with firebase.User
   const [firebaseUser, setFirebaseUser] = useState<firebase.User | null>(null);
   const [guestUser, setGuestUser] = useState<AppUser | null>(null);
@@ -164,6 +168,12 @@ const App: React.FC = () => {
          console.warn("Lưu ý: Chế độ Redirect Auth bị hạn chế do môi trường trình duyệt (Chặn Cookie/Storage).");
          return; 
       }
+
+      if (error.code === 'auth/unauthorized-domain') {
+          console.error("Domain unauthorized:", window.location.hostname);
+          // Không alert ở đây để tránh spam khi load trang, chỉ alert khi user bấm nút
+          return;
+      }
       
       if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/redirect-cancelled-by-user') {
          console.error("Lỗi khi nhận kết quả Redirect:", error);
@@ -178,13 +188,19 @@ const App: React.FC = () => {
           // Thử đăng nhập bằng Popup trước (Tốt cho Desktop)
           await auth.signInWithPopup(googleProvider);
       } catch (e: any) {
-          console.error("Popup login failed, attempting redirect...", e);
+          console.error("Popup login failed", e);
           
           if (e.message === "Auth not supported") return; // Stop if mocked
+
+          if (e.code === 'auth/unauthorized-domain') {
+              alert(`Lỗi: Tên miền "${window.location.hostname}" chưa được phép chạy Google Login.\n\nCÁCH KHẮC PHỤC:\n1. Vào Firebase Console > Authentication > Settings > Authorized Domains > Thêm domain này.\n\nHOẶC:\n2. Dùng chế độ "Tên tạm" (Khách) ở ngay bên dưới để vào luôn.`);
+              return;
+          }
 
           // Nếu Popup thất bại (bất kể lỗi gì, nhất là trên mobile/in-app browser), 
           // chuyển sang dùng Redirect (Chuyển trang).
           try {
+              console.log("Attempting redirect login...");
               await auth.signInWithRedirect(googleProvider);
           } catch (e2: any) {
               console.error("Redirect failed", e2);
@@ -192,7 +208,9 @@ const App: React.FC = () => {
                                  e2.message?.includes('operation is not supported');
               
               if (isEnvError) {
-                  alert("Trình duyệt hoặc môi trường hiện tại đang chặn đăng nhập Google.\nVui lòng thử mở bằng Chrome/Safari bình thường hoặc dùng chế độ 'Tên tạm' bên dưới.");
+                  alert("Trình duyệt này chặn cookie nên không thể đăng nhập Google. Hãy dùng chế độ 'Tên tạm' bên dưới nhé!");
+              } else if (e2.code === 'auth/unauthorized-domain') {
+                   alert(`Lỗi tên miền chưa cấp phép: ${window.location.hostname}.\nHãy dùng chế độ Khách bên dưới.`);
               } else {
                   alert(`Đăng nhập thất bại. Lỗi: ${e2.message}`);
               }
@@ -341,7 +359,7 @@ const App: React.FC = () => {
                 <span className="hidden md:inline">Hẹn giờ</span>
               </button>
               <button 
-                onClick={() => setActiveTab('learning')}
+                onClick={() => { setActiveTab('learning'); setLearningSubject('menu'); }}
                 className={`flex items-center gap-2 px-3 md:px-5 py-2 rounded-full transition-all duration-300 text-xs md:text-sm font-bold ${activeTab === 'learning' ? `bg-white text-black shadow-lg` : 'text-gray-400 hover:text-white'}`}
               >
                 <BrainCircuit size={14} />
@@ -589,7 +607,82 @@ const App: React.FC = () => {
 
         {/* TAB 3: ENGLISH LEARNING HUB */}
         {activeTab === 'learning' && (
-           <EnglishHub theme={currentTheme} user={currentUser} />
+           <div className="w-full max-w-6xl mx-auto pt-24 px-4 pb-24 animate-in fade-in duration-500">
+               {learningSubject === 'menu' ? (
+                   // MENU CHỌN MÔN HỌC
+                   <div className="max-w-4xl mx-auto">
+                       <div className="text-center mb-12">
+                           <h2 className={`text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r ${currentTheme.gradientTitle} uppercase tracking-widest mb-3`}>
+                               Góc Học Tập
+                           </h2>
+                           <p className="text-gray-400 text-sm">Chọn môn học để bắt đầu ôn luyện ngay hôm nay</p>
+                       </div>
+                       
+                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                           {/* MÔN 1: TIẾNG ANH (ACTIVE) */}
+                           <div 
+                              onClick={() => setLearningSubject('english')}
+                              className="group relative cursor-pointer"
+                           >
+                               <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl opacity-75 group-hover:opacity-100 transition duration-300 blur-sm group-hover:blur-md"></div>
+                               <div className="relative h-full bg-[#1e1e2e] rounded-2xl p-6 md:p-8 flex flex-col items-center text-center border border-white/10 hover:border-white/20 transition-all">
+                                   <div className="w-16 h-16 md:w-20 md:h-20 bg-blue-500/10 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                                       <BookOpen size={32} className="text-blue-400" />
+                                   </div>
+                                   <h3 className="text-xl font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">Tiếng Anh</h3>
+                                   <p className="text-sm text-gray-400 mb-6 flex-grow">
+                                       3000 từ vựng cốt lõi, Flashcards, Trắc nghiệm & Luyện nghe.
+                                   </p>
+                                   <span className="inline-flex items-center gap-2 text-xs font-bold text-blue-400 bg-blue-500/10 px-4 py-2 rounded-full group-hover:bg-blue-500 group-hover:text-white transition-all">
+                                       Bắt đầu học <ArrowRight size={14} />
+                                   </span>
+                               </div>
+                           </div>
+
+                           {/* MÔN 2: TOÁN (SẮP RA MẮT) */}
+                           <div className="group relative opacity-70 hover:opacity-100 transition-opacity">
+                               <div className="relative h-full bg-[#1e1e2e] rounded-2xl p-6 md:p-8 flex flex-col items-center text-center border border-white/5 border-dashed">
+                                   <div className="absolute top-4 right-4 px-2 py-1 bg-gray-800 rounded text-[10px] font-bold text-gray-400 uppercase tracking-wide">Sắp ra mắt</div>
+                                   <div className="w-16 h-16 md:w-20 md:h-20 bg-gray-700/20 rounded-full flex items-center justify-center mb-6">
+                                       <Calculator size={32} className="text-gray-500" />
+                                   </div>
+                                   <h3 className="text-xl font-bold text-gray-300 mb-2">Toán Học</h3>
+                                   <p className="text-sm text-gray-500 mb-6 flex-grow">
+                                       Công thức nhanh, Luyện đề trắc nghiệm & Giải chi tiết.
+                                   </p>
+                                   <span className="inline-flex items-center gap-2 text-xs font-bold text-gray-600 bg-gray-800 px-4 py-2 rounded-full cursor-not-allowed">
+                                       Đang cập nhật
+                                   </span>
+                               </div>
+                           </div>
+
+                           {/* MÔN 3: VĂN (SẮP RA MẮT) */}
+                           <div className="group relative opacity-70 hover:opacity-100 transition-opacity">
+                               <div className="relative h-full bg-[#1e1e2e] rounded-2xl p-6 md:p-8 flex flex-col items-center text-center border border-white/5 border-dashed">
+                                   <div className="absolute top-4 right-4 px-2 py-1 bg-gray-800 rounded text-[10px] font-bold text-gray-400 uppercase tracking-wide">Sắp ra mắt</div>
+                                   <div className="w-16 h-16 md:w-20 md:h-20 bg-gray-700/20 rounded-full flex items-center justify-center mb-6">
+                                       <ScrollText size={32} className="text-gray-500" />
+                                   </div>
+                                   <h3 className="text-xl font-bold text-gray-300 mb-2">Ngữ Văn</h3>
+                                   <p className="text-sm text-gray-500 mb-6 flex-grow">
+                                       Sơ đồ tư duy, Dẫn chứng nghị luận & Văn mẫu chọn lọc.
+                                   </p>
+                                   <span className="inline-flex items-center gap-2 text-xs font-bold text-gray-600 bg-gray-800 px-4 py-2 rounded-full cursor-not-allowed">
+                                       Đang cập nhật
+                                   </span>
+                               </div>
+                           </div>
+                       </div>
+                   </div>
+               ) : (
+                   // GIAO DIỆN HỌC TIẾNG ANH
+                   <EnglishHub 
+                        theme={currentTheme} 
+                        user={currentUser} 
+                        onBack={() => setLearningSubject('menu')} 
+                   />
+               )}
+           </div>
         )}
 
          {/* TAB 4: MUSIC SEARCH */}
@@ -597,7 +690,13 @@ const App: React.FC = () => {
            <MusicTab theme={currentTheme} onSelectVideo={handleSelectVideo} />
         )}
 
+        {/* GLOBAL COMPONENTS */}
         <MusicPlayer theme={currentTheme} youtubeVideo={youtubeVideo} />
+        
+        {/* AI ASSISTANT: Visible on Home, Timer, and Learning tabs */}
+        {(activeTab === 'home' || activeTab === 'timer' || activeTab === 'learning') && (
+            <AiAssistant theme={currentTheme} />
+        )}
       </div>
     </div>
   );

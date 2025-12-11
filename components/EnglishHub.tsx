@@ -6,6 +6,7 @@ import { BookOpen, HelpCircle, Volume2, RotateCw, Check, X, ArrowLeft, BrainCirc
 interface EnglishHubProps {
   theme: ThemeConfig;
   user: AppUser | null;
+  onBack?: () => void; // New prop to handle navigation back to Subject Menu
 }
 
 type Mode = 'menu' | 'flashcard' | 'quiz' | 'listening' | 'code' | 'stats';
@@ -38,7 +39,7 @@ const playSound = (type: keyof typeof SOUNDS) => {
     }
 };
 
-const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user }) => {
+const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user, onBack }) => {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
   const [mode, setMode] = useState<Mode>('menu');
@@ -112,11 +113,7 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user }) => {
       let interval: any;
       if (user && selectedTopic && mode !== 'menu' && mode !== 'stats') {
           interval = setInterval(async () => {
-              // Update time every 10 seconds locally to Firestore (debounce effectively)
-              // Note: To avoid too many writes, a real app would update on unmount or every minute.
-              // Here we simplify by assuming the component handles the write on specific actions or just update a ref and write periodically.
-              // For MVP, we will update time when user interacts (Flashcard/Quiz).
-              // Or better: Let's simpler, just track session time in state and save on unmount/back.
+              // Time tracking logic placeholder
           }, 1000);
       }
       return () => clearInterval(interval);
@@ -149,7 +146,6 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user }) => {
 
           if (type === 'flashcard') {
               const { wordId, status } = data;
-              // Remove from both lists first to ensure no duplicates
               currentData.memorized = currentData.memorized?.filter(id => id !== wordId) || [];
               currentData.learning = currentData.learning?.filter(id => id !== wordId) || [];
               
@@ -171,7 +167,7 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user }) => {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-4 pb-32 pt-24 animate-in fade-in duration-500">
+    <div className="w-full mx-auto animate-in fade-in duration-500">
       
       {/* HEADER: TITLE & BACK BUTTON */}
       {selectedTopic ? (
@@ -187,9 +183,19 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user }) => {
       ) : (
           /* Main Menu Header with Stats Button */
           <div className="flex justify-between items-end mb-6">
-              <div>
-                  <h2 className={`text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r ${theme.gradientTitle} uppercase tracking-widest`}>Học Tiếng Anh</h2>
-                  <p className="text-gray-400 text-sm mt-1">Luyện từ vựng & Code mỗi ngày</p>
+              <div className="flex items-center gap-3">
+                  {onBack && (
+                     <button 
+                        onClick={onBack}
+                        className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 transition-colors border border-white/5"
+                     >
+                        <ArrowLeft size={20} className="text-white" />
+                     </button>
+                  )}
+                  <div>
+                    <h2 className={`text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r ${theme.gradientTitle} uppercase tracking-widest`}>Học Tiếng Anh</h2>
+                    <p className="text-gray-400 text-sm mt-1">Luyện từ vựng & Code mỗi ngày</p>
+                  </div>
               </div>
               {user && (
                   <button 
@@ -325,7 +331,7 @@ const UserStatsView: React.FC<{ progress: Record<string, UserTopicProgress>, the
     const totalSeconds = allProgress.reduce((acc, curr) => acc + (curr.studySeconds || 0), 0);
     const totalHours = (totalSeconds / 3600).toFixed(1);
     
-    // Streak Logic (Approximate based on lastStudied timestamps of different topics)
+    // Streak Logic
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const hasStudiedToday = allProgress.some(p => p.lastStudied >= startOfToday);
@@ -544,7 +550,6 @@ const FlashcardView: React.FC<{
                 Thẻ {currentIndex + 1} / {vocabList.length}
             </div>
             
-            {/* THAY ĐỔI: Giảm chiều cao Flashcard trên mobile (h-56) */}
             <div className="w-full h-56 md:h-96 mb-6 cursor-pointer group select-none" style={containerStyle} onClick={handleFlip}>
                 <div style={cardStyle}>
                     
