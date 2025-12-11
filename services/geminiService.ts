@@ -5,8 +5,13 @@ import { GoogleGenAI } from "@google/genai";
 
 export const generateWish = async (): Promise<string> => {
   try {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+        return "Lỗi: Thiếu API Key.";
+    }
+
     // Initialize Gemini client with API key from environment variable directly
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: apiKey });
     
     // We use flash for speed
     const response = await ai.models.generateContent({
@@ -27,8 +32,14 @@ export interface ChatMessage {
 }
 
 export const getChatResponse = async (history: ChatMessage[], newMessage: string): Promise<string> => {
+    const apiKey = process.env.API_KEY;
+    
+    if (!apiKey) {
+        return "⚠️ Lỗi hệ thống: Không tìm thấy API Key. Vui lòng kiểm tra cấu hình.";
+    }
+
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const ai = new GoogleGenAI({ apiKey });
         
         // Convert simple message format to Gemini history format
         const formattedHistory = history.map(msg => ({
@@ -46,8 +57,13 @@ export const getChatResponse = async (history: ChatMessage[], newMessage: string
 
         const result = await chat.sendMessage({ message: newMessage });
         return result.text || "Hmm, câu này khó nha, mình chưa nghĩ ra. Bạn hỏi lại thử xem?";
-    } catch (error) {
+    } catch (error: any) {
         console.error("Chat Error:", error);
-        return "Mạng lag quá rùi, bạn kiểm tra lại kết nối nha! (Hoặc API Key hết hạn)";
+        
+        if (error.message?.includes('400') || error.message?.includes('API key')) {
+             return "⚠️ Lỗi API Key: Key có vẻ không hợp lệ hoặc đã hết hạn mức sử dụng (Quota exceeded).";
+        }
+        
+        return "Mạng lag quá rùi. Bạn kiểm tra lại wifi xem sao nha!";
     }
 };

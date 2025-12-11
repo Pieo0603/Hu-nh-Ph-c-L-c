@@ -37,15 +37,6 @@ const AiAssistant: React.FC<AiAssistantProps> = ({ theme }) => {
     setIsLoading(true);
 
     // Call API
-    // Pass history EXCLUDING the last user message we just added locally, 
-    // actually standard Gemini chat maintains state but here we pass history manually for stateless feel or context management
-    // However, google-genai SDK's chat object is stateful.
-    // Since we create a NEW chat instance every request in the service (stateless wrapper), we pass the full history.
-    // Wait, let's pass history excluding the latest one if the service initializes fresh. 
-    // The service takes "history" + "newMessage". So pass "messages" (which includes previous) and "userMsg".
-    // Actually the service logic: history = formattedHistory. 
-    // We should pass the OLD history (messages) to the service, and the service sends the new message.
-    
     const responseText = await getChatResponse(messages, userMsg);
 
     setMessages(prev => [...prev, { role: 'model', text: responseText }]);
@@ -95,7 +86,7 @@ const AiAssistant: React.FC<AiAssistantProps> = ({ theme }) => {
                 return (
                     <div key={idx} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
                         <div 
-                            className={`max-w-[85%] p-3 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                            className={`max-w-[85%] p-3 rounded-2xl text-sm leading-relaxed shadow-sm whitespace-pre-wrap ${
                                 isUser 
                                 ? `bg-gradient-to-br ${theme.buttonGradient} text-white rounded-tr-sm` 
                                 : 'bg-white/10 text-gray-200 border border-white/5 rounded-tl-sm'
@@ -138,7 +129,7 @@ const AiAssistant: React.FC<AiAssistantProps> = ({ theme }) => {
                 </button>
             </div>
             <div className="text-[10px] text-center text-gray-500 mt-2">
-                AI có thể mắc lỗi, hãy kiểm chứng thông tin quan trọng.
+                Powered by Google Gemini AI
             </div>
         </form>
       </div>

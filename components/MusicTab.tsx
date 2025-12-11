@@ -21,8 +21,7 @@ interface SearchResult {
 // --- CẤU HÌNH API KEY CỦA BẠN TẠI ĐÂY ---
 // B1: Vào Google Cloud Console tạo API Key (Youtube Data API v3)
 // B2: Dán Key vào biến bên dưới
-// B3: Cực kỳ quan trọng: Hãy giới hạn Key theo HTTP Referrer (tên miền web của bạn) trên Google Cloud để không bị mất trộm quota.
-const YOUTUBE_API_KEY = "AIzaSyAwtcY7DRZ3Z9ATmYA71pOzF9SjN9FvDIU"; // <--- DÁN API KEY CỦA BẠN VÀO GIỮA 2 DẤU NGOẶC KÉP
+const YOUTUBE_API_KEY = "AIzaSyAwtcY7DRZ3Z9ATmYA71pOzF9SjN9FvDIU"; 
 
 // Danh sách gợi ý sẵn (Đã lọc các video an toàn, cho phép nhúng 100%)
 const RECOMMENDED = [
@@ -49,18 +48,12 @@ const MusicTab: React.FC<MusicTabProps> = ({ theme, onSelectVideo }) => {
     e.preventDefault();
     if (!query.trim()) return;
     
-    if (!YOUTUBE_API_KEY) {
-      setError('Admin chưa cấu hình API Key. Vui lòng dùng danh sách đề xuất bên dưới.');
-      return;
-    }
-
     setLoading(true);
     setError('');
 
     try {
       // API CALL UPDATE:
       // videoEmbeddable=true: Chỉ lấy video cho phép nhúng.
-      // Removed videoSyndicated=true to ensure we get enough results.
       const response = await fetch(
         `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=12&q=${encodeURIComponent(query)}&type=video&videoEmbeddable=true&key=${YOUTUBE_API_KEY}`
       );
@@ -73,7 +66,7 @@ const MusicTab: React.FC<MusicTabProps> = ({ theme, onSelectVideo }) => {
       setResults(data.items || []);
     } catch (err: any) {
       console.error(err);
-      setError('Lỗi tìm kiếm: ' + (err.message || 'Hết quota hoặc sai Key'));
+      setError('Key YouTube hết hạn hoặc lỗi. Vui lòng chọn nhạc từ danh sách đề xuất bên dưới.');
     } finally {
       setLoading(false);
     }
@@ -122,9 +115,6 @@ const MusicTab: React.FC<MusicTabProps> = ({ theme, onSelectVideo }) => {
                     <AlertCircle size={14} /> {error}
                 </div>
             )}
-            {!YOUTUBE_API_KEY && !error && (
-                 <p className="text-[10px] text-yellow-500 text-center">* Lưu ý: Hiện tại chưa có API Key. Vui lòng mở file code <code>components/MusicTab.tsx</code> và điền Key vào.</p>
-            )}
          </form>
       </div>
 
@@ -162,6 +152,7 @@ const MusicTab: React.FC<MusicTabProps> = ({ theme, onSelectVideo }) => {
         <h3 className="text-white font-bold mb-4 flex items-center gap-2 text-lg">
             <Music size={18} className="text-yellow-400" /> Đề xuất chọn lọc (An toàn)
         </h3>
+        <p className="text-xs text-gray-500 mb-4">Các playlist này luôn hoạt động kể cả khi tính năng Tìm kiếm bị lỗi Key.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4">
             {RECOMMENDED.map((item) => (
                 <div 
