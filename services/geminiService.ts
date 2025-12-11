@@ -29,9 +29,10 @@ export const generateWish = async (): Promise<string> => {
 export interface ChatMessage {
     role: 'user' | 'model';
     text: string;
+    image?: string; // Base64 string for image
 }
 
-export const getChatResponse = async (history: ChatMessage[], newMessage: string): Promise<string> => {
+export const getChatResponse = async (history: ChatMessage[], newMessage: string, image?: string): Promise<string> => {
     const apiKey = process.env.API_KEY;
     
     if (!apiKey) {
@@ -41,7 +42,7 @@ export const getChatResponse = async (history: ChatMessage[], newMessage: string
     try {
         const ai = new GoogleGenAI({ apiKey });
         
-        // Convert simple message format to Gemini history format
+        // Format history
         const formattedHistory = history.map(msg => ({
             role: msg.role,
             parts: [{ text: msg.text }]
@@ -50,18 +51,31 @@ export const getChatResponse = async (history: ChatMessage[], newMessage: string
         const chat = ai.chats.create({
             model: 'gemini-2.5-flash',
             config: {
-                systemInstruction: "Bạn là một trợ lý học tập AI thân thiện, hài hước và am hiểu kiến thức THPT Quốc Gia. Nhiệm vụ của bạn là giải đáp thắc mắc các môn Toán, Văn, Anh, Lý, Hóa, Sinh... và đưa ra lời khuyên, động viên tinh thần cho học sinh ôn thi. Hãy dùng emoji và giọng văn trẻ trung (Gen Z). Nếu không biết câu trả lời, hãy thành thật.",
+                systemInstruction: "Bạn là trợ lý học tập AI dành cho học sinh THPT Quốc Gia (Gen Z). \n\nQUY TẮC QUAN TRỌNG VỀ TOÁN HỌC:\n1. Khi viết công thức toán, BẮT BUỘC dùng định dạng LaTeX.\n2. Công thức cùng dòng (inline) kẹp giữa dấu $: Ví dụ $x^2 + 1 = 0$\n3. Công thức riêng dòng (block) kẹp giữa dấu $$: Ví dụ $$ \\int_{0}^{1} x dx $$\n4. Trình bày lời giải từng bước rõ ràng, dùng bullet point hoặc số thứ tự.\n5. Giọng điệu thân thiện, hài hước, động viên.\n6. Nếu có hình ảnh bài tập, hãy giải chi tiết.",
             },
             history: formattedHistory
         });
 
-        const result = await chat.sendMessage({ message: newMessage });
+        let messageParam: any = newMessage;
+
+        // If there is an image, construct a multipart message
+        if (image) {
+            // Remove 'data:image/jpeg;base64,' prefix if present to get raw base64
+            const base64Data = image.includes(',') ? image.split(',')[1] : image;
+            
+            messageParam = [
+                { text: newMessage || "Giải giúp mình bài này với!" },
+                { inlineData: { mimeType: 'image/jpeg', data: base64Data } }
+            ];
+        }
+
+        const result = await chat.sendMessage({ message: messageParam });
         return result.text || "Hmm, câu này khó nha, mình chưa nghĩ ra. Bạn hỏi lại thử xem?";
     } catch (error: any) {
         console.error("Chat Error:", error);
         
         if (error.message?.includes('400') || error.message?.includes('API key')) {
-             return "⚠️ Lỗi API Key: Key có vẻ không hợp lệ hoặc đã hết hạn mức sử dụng (Quota exceeded).";
+             return "⚠️ Lỗi API Key hoặc Ảnh không hợp lệ (Quá lớn?).";
         }
         
         return "Mạng lag quá rùi. Bạn kiểm tra lại wifi xem sao nha!";

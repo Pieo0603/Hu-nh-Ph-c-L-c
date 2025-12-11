@@ -11,7 +11,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,900;1,400&family=Outfit:wght@300;400;500;600;700;800;900&family=Patrick+Hand&display=swap" rel="stylesheet">
     
-    <!-- TAILWIND CSS CDN (Sử dụng bản CDN để chạy mượt mà trên mọi môi trường) -->
+    <!-- KATEX CSS & JS (Load Blocking để đảm bảo sẵn sàng khi React render) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8" crossorigin="anonymous"></script>
+
+    <!-- TAILWIND CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -40,7 +44,6 @@
     <style>
       body {
         font-family: 'Be Vietnam Pro', sans-serif;
-        /* background-color: #0f0c29;  <-- ĐÃ XÓA DÒNG NÀY ĐỂ HIỆN SAO */
         color: white;
         overflow-x: hidden;
       }
@@ -68,6 +71,19 @@
       }
       .hover-shine:hover::after { animation: shine 0.75s cubic-bezier(0.4, 0.0, 0.2, 1); }
       @keyframes shine { 0% { left: -100%; } 100% { left: 200%; } }
+
+      /* MARKDOWN STYLES FOR CHAT */
+      .markdown-body p { margin-bottom: 0.5em; }
+      .markdown-body p:last-child { margin-bottom: 0; }
+      .markdown-body ul { list-style-type: disc; margin-left: 1.2em; margin-bottom: 0.5em; }
+      .markdown-body ol { list-style-type: decimal; margin-left: 1.2em; margin-bottom: 0.5em; }
+      .markdown-body li { margin-bottom: 0.25em; }
+      .markdown-body strong { font-weight: 700; color: #fbbf24; }
+      .markdown-body code { background: rgba(255,255,255,0.1); padding: 0.1em 0.3em; border-radius: 4px; font-family: monospace; color: #f472b6; font-size: 0.9em; }
+      
+      /* KaTeX Adjustments */
+      .katex { font-size: 1.1em; color: #a5f3fc; } /* Cyan color for Math */
+      .katex-display { margin: 0.5em 0; overflow-x: auto; overflow-y: hidden; }
     </style>
     
     <script type="importmap">
@@ -80,9 +96,13 @@
         "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
         "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/",
         "vite": "https://aistudiocdn.com/vite@^7.2.7",
-        "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.2"
+        "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.2",
+        "react-markdown": "https://esm.sh/react-markdown@9.0.1?bundle"
       }
     }
+    </script>
+    <script>
+      window.process = { env: { NODE_ENV: 'production' } };
     </script>
   </head>
   <body>
