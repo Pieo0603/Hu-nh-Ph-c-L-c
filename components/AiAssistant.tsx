@@ -10,78 +10,98 @@ interface AiAssistantProps {
 }
 
 const AiAssistant: React.FC<AiAssistantProps> = ({ theme }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  // State để phóng to full màn hình trên Desktop nếu muốn
-  const [isMaximized, setIsMaximized] = useState(false); 
+  // --- TRẠNG THÁI (STATE) ---
+  // Biến kiểm soát việc đóng/mở khung chat
+  const [dangMoChat, setDangMoChat] = useState(false);
+  
+  // Biến kiểm soát trạng thái AI đang suy nghĩ (loading)
+  const [dangXuLy, setDangXuLy] = useState(false);
+  
+  // Biến kiểm soát chế độ phóng to toàn màn hình trên PC
+  const [cheDoToanManHinh, setCheDoToanManHinh] = useState(false); 
 
-  const [messages, setMessages] = useState<ChatMessage[]>([
+  // Danh sách lịch sử tin nhắn
+  const [lichSuTinNhan, setLichSuTinNhan] = useState<ChatMessage[]>([
       { role: 'model', text: 'Chào cậu! 👋 Mình là trợ lý AI. Gửi ảnh đề bài hoặc câu hỏi qua đây mình giải chi tiết cho nhé!' }
   ]);
   
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Ref để tự động cuộn xuống tin nhắn cuối cùng
+  const cuoiDoanChatRef = useRef<HTMLDivElement>(null);
 
-  // Tự động cuộn xuống tin nhắn mới nhất
+  // --- HIỆU ỨNG (EFFECT) ---
+  // Tự động cuộn xuống dưới khi có tin nhắn mới hoặc khi mở chat
   useEffect(() => {
-    if (isOpen) {
+    if (dangMoChat) {
         setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            cuoiDoanChatRef.current?.scrollIntoView({ behavior: "smooth" });
         }, 100);
     }
-  }, [messages, isOpen, isLoading]);
+  }, [lichSuTinNhan, dangMoChat, dangXuLy]);
 
-  const handleSendMessage = async (text: string, image?: string) => {
-    const newHistory: ChatMessage[] = [...messages, { role: 'user', text: text.trim(), image }];
-    setMessages(newHistory);
-    setIsLoading(true);
+  // --- CÁC HÀM XỬ LÝ (HANDLERS) ---
+  
+  // Hàm gửi tin nhắn đi
+  const xuLyGuiTin = async (noiDung: string, hinhAnh?: string) => {
+    // 1. Thêm tin nhắn của người dùng vào danh sách ngay lập tức
+    const lichSuMoi: ChatMessage[] = [...lichSuTinNhan, { role: 'user', text: noiDung.trim(), image: hinhAnh }];
+    setLichSuTinNhan(lichSuMoi);
+    setDangXuLy(true); // Bật trạng thái loading
 
-    // Giả lập delay một chút cho tự nhiên nếu phản hồi quá nhanh
-    const responseText = await getChatResponse(messages, text, image);
+    // 2. Gọi API để lấy phản hồi từ AI
+    const phanHoiCuaAI = await getChatResponse(lichSuTinNhan, noiDung, hinhAnh);
 
-    setMessages(prev => [...prev, { role: 'model', text: responseText }]);
-    setIsLoading(false);
+    // 3. Thêm phản hồi của AI vào danh sách
+    setLichSuTinNhan(prev => [...prev, { role: 'model', text: phanHoiCuaAI }]);
+    setDangXuLy(false); // Tắt trạng thái loading
   };
 
-  const handleClearChat = () => {
+  // Hàm xóa lịch sử chat
+  const xoaLichSuChat = () => {
       if(window.confirm("Bạn muốn xóa toàn bộ đoạn chat này?")) {
-          setMessages([{ role: 'model', text: 'Đã dọn dẹp! Bắt đầu lại nào. 🚀' }]);
+          setLichSuTinNhan([{ role: 'model', text: 'Đã dọn dẹp! Bắt đầu lại nào. 🚀' }]);
       }
   };
 
-  // --- CẤU HÌNH CLASS CSS CHO KHUNG CHAT ---
-  // 1. Mobile: fixed inset-0 (Full màn hình, dính 4 góc)
-  // 2. Desktop (Bình thường): md:inset-auto (Hủy full màn) + md:bottom-6 md:right-6 (Góc phải) + md:w-[450px] md:h-[600px]
-  // 3. Desktop (Phóng to): md:inset-4 (Cách lề 1rem) + md:w-auto md:h-auto
-  const containerClasses = `
+  // --- CẤU HÌNH CSS (STYLE) ---
+  // Logic vị trí: 
+  // - Mobile: inset-0 (Full màn hình)
+  // - PC (Mặc định): bottom-6 right-6 (Góc dưới phải)
+  // - PC (Toàn màn hình): inset-6 (Cách lề 24px)
+  const lopCssKhungChat = `
     fixed z-50 bg-[#1a1a2e] flex flex-col shadow-2xl overflow-hidden transition-all duration-300 ease-out border border-white/10
-    ${isOpen ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none translate-y-10'}
     
-    /* MOBILE DEFAULT: Full Screen */
+    /* TRẠNG THÁI ĐÓNG/MỞ */
+    ${dangMoChat 
+        ? 'opacity-100 scale-100 pointer-events-auto translate-y-0' 
+        : 'opacity-0 scale-95 pointer-events-none translate-y-10'
+    }
+    
+    /* --- MOBILE (Mặc định) --- */
     inset-0 w-full h-full rounded-none
 
-    /* DESKTOP OVERRIDES */
-    md:origin-bottom-right
-    ${isMaximized 
-        ? 'md:inset-6 md:rounded-2xl' // Desktop Full Mode
-        : 'md:inset-auto md:bottom-6 md:right-6 md:w-[450px] md:h-[650px] md:rounded-2xl' // Desktop Compact Mode (Bottom Right)
+    /* --- PC / TABLET (Màn hình lớn) --- */
+    md:inset-auto md:origin-bottom-right
+    ${cheDoToanManHinh 
+        ? 'md:inset-6 md:rounded-2xl' // Chế độ Phóng to
+        : 'md:bottom-6 md:right-6 md:w-[450px] md:h-[650px] md:rounded-2xl' // Chế độ Thu gọn (Góc phải)
     }
   `;
 
   return (
     <>
-      {/* 1. NÚT KÍCH HOẠT TRÒN (Luôn hiển thị khi đóng chat) */}
+      {/* 1. NÚT TRÒN ĐỂ MỞ CHAT (Chỉ hiện khi đang đóng chat) */}
       <button
-        onClick={() => setIsOpen(true)}
-        className={`fixed z-40 bottom-24 right-6 md:bottom-6 md:right-6 w-14 h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br ${theme.buttonGradient} shadow-xl flex items-center justify-center text-white hover:scale-110 transition-transform duration-300 group border-2 border-white/20 ${isOpen ? 'opacity-0 pointer-events-none scale-0' : 'opacity-100 scale-100'}`}
+        onClick={() => setDangMoChat(true)}
+        className={`fixed z-40 bottom-24 right-6 md:bottom-6 md:right-6 w-14 h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br ${theme.buttonGradient} shadow-xl flex items-center justify-center text-white hover:scale-110 transition-transform duration-300 group border-2 border-white/20 ${dangMoChat ? 'opacity-0 pointer-events-none scale-0' : 'opacity-100 scale-100'}`}
       >
           <Bot size={28} className="group-hover:rotate-12 transition-transform" />
           <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-[#0f0c29] animate-pulse"></div>
       </button>
 
       {/* 2. KHUNG CHAT CHÍNH */}
-      <div className={containerClasses}>
+      <div className={lopCssKhungChat}>
         
-        {/* HEADER */}
+        {/* THANH TIÊU ĐỀ (HEADER) */}
         <div className={`flex items-center justify-between px-4 py-3 bg-gradient-to-r ${theme.buttonGradient} flex-shrink-0 cursor-default select-none`}>
             <div className="flex items-center gap-3 text-white">
                 <div className="bg-white/20 p-1.5 rounded-lg">
@@ -97,28 +117,31 @@ const AiAssistant: React.FC<AiAssistantProps> = ({ theme }) => {
             </div>
             
             <div className="flex items-center gap-1">
-                <button onClick={handleClearChat} className="p-2 hover:bg-white/20 rounded-lg text-white/90 transition-colors" title="Xóa chat">
+                {/* Nút xóa */}
+                <button onClick={xoaLichSuChat} className="p-2 hover:bg-white/20 rounded-lg text-white/90 transition-colors" title="Làm mới cuộc trò chuyện">
                     <Trash2 size={18} />
                 </button>
                 
-                {/* Nút phóng to chỉ hiện trên Desktop */}
-                <button onClick={() => setIsMaximized(!isMaximized)} className="hidden md:block p-2 hover:bg-white/20 rounded-lg text-white transition-colors" title="Phóng to/Thu nhỏ">
-                    {isMaximized ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+                {/* Nút phóng to/thu nhỏ (Chỉ hiện trên PC) */}
+                <button onClick={() => setCheDoToanManHinh(!cheDoToanManHinh)} className="hidden md:block p-2 hover:bg-white/20 rounded-lg text-white transition-colors" title={cheDoToanManHinh ? "Thu nhỏ" : "Phóng to"}>
+                    {cheDoToanManHinh ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                 </button>
 
-                <button onClick={() => setIsOpen(false)} className="p-2 hover:bg-white/20 rounded-lg text-white transition-colors">
-                    {window.innerWidth < 768 ? <X size={20} /> : <Minimize2 size={20} />}
+                {/* Nút đóng */}
+                <button onClick={() => setDangMoChat(false)} className="p-2 hover:bg-white/20 rounded-lg text-white transition-colors">
+                    <X size={20} />
                 </button>
             </div>
         </div>
 
-        {/* BODY (MESSAGES) */}
+        {/* DANH SÁCH TIN NHẮN (BODY) */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-black/20 custom-scrollbar scroll-smooth">
-            {messages.map((msg, idx) => (
-                <ChatBubble key={idx} message={msg} theme={theme} />
+            {lichSuTinNhan.map((tinNhan, index) => (
+                <ChatBubble key={index} duLieuTinNhan={tinNhan} cauHinhGiaoDien={theme} />
             ))}
             
-            {isLoading && (
+            {/* Hiệu ứng loading khi AI đang nghĩ */}
+            {dangXuLy && (
                 <div className="flex justify-start animate-pulse">
                     <div className="bg-[#252540] text-gray-300 px-4 py-3 rounded-2xl rounded-tl-none border border-white/10 flex items-center gap-2 text-sm shadow-md">
                         <Sparkles size={16} className="animate-spin text-yellow-400" />
@@ -126,15 +149,16 @@ const AiAssistant: React.FC<AiAssistantProps> = ({ theme }) => {
                     </div>
                 </div>
             )}
-            <div ref={messagesEndRef} className="h-1" />
+            {/* Điểm neo để cuộn xuống */}
+            <div ref={cuoiDoanChatRef} className="h-1" />
         </div>
 
-        {/* FOOTER (INPUT) */}
+        {/* KHUNG NHẬP LIỆU (FOOTER) */}
         <div className="flex-shrink-0 z-20">
              <ChatInput 
-                onSendMessage={handleSendMessage} 
-                isLoading={isLoading} 
-                theme={theme} 
+                khiGuiTin={xuLyGuiTin} 
+                dangXuLy={dangXuLy} 
+                cauHinhGiaoDien={theme} 
             />
         </div>
       </div>

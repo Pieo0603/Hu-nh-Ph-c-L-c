@@ -12,7 +12,7 @@ interface AdminDashboardProps {
 
 type AdminTab = 'messages' | 'upload' | 'vocab' | 'study_logs';
 
-// DỮ LIỆU MẪU
+// DỮ LIỆU MẪU (Giữ nguyên cấu trúc, chỉ sửa nội dung hiển thị nếu cần)
 const SAMPLE_VOCAB = [
   { word: "calculator", type: "n", pronunciation: "/ˈkælkjuleɪtə(r)/", meaning: "máy tính, công cụ tính", level: "A2", synonyms: "", antonyms: "" },
   { word: "carbon footprint", type: "n", pronunciation: "/ˈkɑːbən ˈfʊtprɪnt/", meaning: "tổng lượng khí thải carbon", level: "B2", synonyms: "", antonyms: "" },
@@ -25,29 +25,29 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
 
-  // Vocab Management State
+  // Trạng thái quản lý từ vựng
   const [vocabList, setVocabList] = useState<VocabItem[]>([]);
   const [selectedVocabIds, setSelectedVocabIds] = useState<Set<string>>(new Set());
   const [vocabLoading, setVocabLoading] = useState(false);
   const [vocabFilterTopic, setVocabFilterTopic] = useState('all');
 
-  // Study Logs Management State
+  // Trạng thái quản lý nhật ký học
   const [studyLogs, setStudyLogs] = useState<StudyLog[]>([]);
   const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set());
   const [logsLoading, setLogsLoading] = useState(false);
 
-  // Upload State
+  // Trạng thái Upload
   const [rawText, setRawText] = useState('');
   const [targetTopicId, setTargetTopicId] = useState('topic_1');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Modal State
+  // Trạng thái Modal
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
   const [deleteMode, setDeleteMode] = useState<'messages' | 'vocab' | 'study_logs'>('messages');
 
-  // --- FETCHING LOGIC ---
+  // --- LOGIC TẢI DỮ LIỆU ---
   const fetchVocab = async () => {
     setVocabLoading(true);
     try {
@@ -60,9 +60,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
         const snapshot = await q.get();
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VocabItem));
         setVocabList(data);
-        setSelectedVocabIds(new Set()); // Reset selection when filtering
+        setSelectedVocabIds(new Set()); // Reset chọn khi lọc lại
     } catch (error) {
-        console.error("Error fetching vocab:", error);
+        console.error("Lỗi tải từ vựng:", error);
     } finally {
         setVocabLoading(false);
     }
@@ -71,13 +71,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
   const fetchStudyLogs = async () => {
       setLogsLoading(true);
       try {
-          // Fetch last 100 logs
+          // Lấy 100 log mới nhất
           const snapshot = await db.collection("study_logs").orderBy("timestamp", "desc").limit(100).get();
           const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StudyLog));
           setStudyLogs(data);
           setSelectedLogIds(new Set());
       } catch (error) {
-          console.error("Error fetching logs:", error);
+          console.error("Lỗi tải nhật ký:", error);
       } finally {
           setLogsLoading(false);
       }
@@ -88,7 +88,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
     if (activeTab === 'study_logs') fetchStudyLogs();
   }, [activeTab, vocabFilterTopic]);
 
-  // --- FILTER & SORT MESSAGES ---
+  // --- LỌC VÀ SẮP XẾP TIN NHẮN ---
   const filteredMessages = useMemo(() => {
     let result = [...messages];
     if (searchTerm) {
@@ -106,7 +106,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
     return result;
   }, [messages, searchTerm, sortOrder]);
 
-  // --- HANDLERS ---
+  // --- HÀM XỬ LÝ (HANDLERS) ---
   const toggleSelect = (id: string) => {
     const newSelected = new Set(selectedIds);
     if (newSelected.has(id)) newSelected.delete(id);
@@ -123,7 +123,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
     setSelectedIds(new Set());
   };
 
-  // Vocab Selection
+  // Chọn từ vựng
   const toggleSelectVocab = (id: string) => {
     const newSelected = new Set(selectedVocabIds);
     if (newSelected.has(id)) newSelected.delete(id);
@@ -139,7 +139,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
       }
   };
 
-  // Study Logs Selection
+  // Chọn nhật ký học
   const toggleSelectLog = (id: string) => {
       const newSelected = new Set(selectedLogIds);
       if (newSelected.has(id)) newSelected.delete(id);
@@ -179,7 +179,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
                   batch.delete(db.collection("vocabulary").doc(id));
               });
               await batch.commit();
-              alert(`Đã xóa ${selectedVocabIds.size} từ vựng!`);
+              alert(`Đã xóa thành công ${selectedVocabIds.size} từ vựng!`);
               fetchVocab(); 
           } catch (e) {
               console.error(e);
@@ -195,7 +195,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
                   batch.delete(db.collection("study_logs").doc(id));
               });
               await batch.commit();
-              alert(`Đã xóa ${selectedLogIds.size} bản ghi nhật ký!`);
+              alert(`Đã xóa thành công ${selectedLogIds.size} bản ghi nhật ký!`);
               fetchStudyLogs();
           } catch (e) {
               console.error(e);
@@ -214,7 +214,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(messages, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "wishes_backup.json");
+    downloadAnchorNode.setAttribute("download", "du_lieu_loi_chuc.json");
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
@@ -227,9 +227,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
     });
   };
 
-  // --- UPLOAD LOGIC ---
+  // --- LOGIC UPLOAD ---
   const handleProcessData = async () => {
-      // (Giữ nguyên logic cũ)
       if (!rawText.trim()) return;
       setIsProcessing(true);
 
@@ -257,6 +256,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
                   }
               } 
               else {
+                  // Logic phân tích dòng text thông thường (nếu copy không có tab)
                   const phoneticMatch = cleanLine.match(/(\/.*?\/)/);
                   if (phoneticMatch) {
                       pronunciation = phoneticMatch[0];
@@ -302,7 +302,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
               alert(`Thành công! Đã thêm ${count} từ vựng vào Chủ đề ${targetTopicId.split('_')[1]}.`);
               setRawText('');
           } else {
-              alert("Không nhận diện được dữ liệu.");
+              alert("Không nhận diện được dữ liệu hợp lệ. Vui lòng kiểm tra lại định dạng.");
           }
       } catch (error) {
           console.error("Lỗi nhập liệu:", error);
@@ -313,7 +313,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
   };
 
   const handleSeedData = async () => {
-      if(!window.confirm(`Bạn có muốn nạp ${SAMPLE_VOCAB.length} từ vựng mẫu không?`)) return;
+      if(!window.confirm(`Bạn có muốn nạp ${SAMPLE_VOCAB.length} từ vựng mẫu vào cơ sở dữ liệu không?`)) return;
       setIsProcessing(true);
       try {
           const batch = db.batch();
@@ -322,7 +322,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
               batch.set(docRef, { ...v, topicId: targetTopicId });
           });
           await batch.commit();
-          alert(`Đã nạp xong mẫu!`);
+          alert(`Đã nạp xong dữ liệu mẫu!`);
       } catch (e) {
           console.error(e);
           alert("Lỗi nạp mẫu.");
@@ -334,7 +334,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
   return (
     <div className="fixed inset-0 z-[100] bg-[#1a1a2e] text-white overflow-hidden flex flex-col font-sans">
       
-      {/* Delete Confirmation Modal */}
+      {/* Modal xác nhận xóa */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
            <div className="bg-[#1e1b2e] rounded-2xl border border-pink-500/20 shadow-2xl w-full max-w-md overflow-hidden transform scale-100">
@@ -346,61 +346,62 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
                       Xác nhận xóa {deleteMode === 'vocab' ? 'từ vựng' : deleteMode === 'study_logs' ? 'nhật ký học' : 'tin nhắn'}
                   </h3>
                   <div className="w-full text-left mb-6">
-                    <label className="block text-xs font-semibold text-gray-400 mb-2 ml-1">Nhập mật khẩu:</label>
+                    <label className="block text-xs font-semibold text-gray-400 mb-2 ml-1">Nhập mật khẩu quản trị:</label>
                     <input 
                       type="password" 
                       value={passwordInput}
                       onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(false); }}
-                      className={`w-full bg-[#2a2438] border ${passwordError ? 'border-red-500' : 'border-gray-600'} rounded-lg px-4 py-3 text-white`}
+                      className={`w-full bg-[#2a2438] border ${passwordError ? 'border-red-500' : 'border-gray-600'} rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 transition-colors`}
                       autoFocus
                     />
+                    {passwordError && <p className="text-red-500 text-xs mt-1 ml-1">Mật khẩu không đúng!</p>}
                   </div>
                   <div className="flex gap-3 w-full">
-                     <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 py-2.5 rounded-lg border border-pink-500/30 text-pink-300">Bỏ cuộc</button>
-                     <button onClick={confirmDelete} className="flex-1 py-2.5 rounded-lg bg-slate-600 text-white shadow-lg">Xóa ngay</button>
+                     <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 py-2.5 rounded-lg border border-gray-600 text-gray-300 hover:bg-white/5 transition-colors">Hủy bỏ</button>
+                     <button onClick={confirmDelete} className="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white shadow-lg transition-colors font-bold">Xóa ngay</button>
                   </div>
               </div>
            </div>
         </div>
       )}
 
-      {/* Header */}
-      <div className="bg-[#16213e] border-b border-gray-700 px-6 py-4 flex justify-between items-center shadow-md">
-        <div className="flex items-center gap-4">
-            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+      {/* Thanh tiêu đề (Header) */}
+      <div className="bg-[#16213e] border-b border-gray-700 px-6 py-4 flex justify-between items-center shadow-md flex-shrink-0">
+        <div className="flex items-center gap-4 overflow-hidden">
+            <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2 whitespace-nowrap">
                 <Wrench size={24} className="text-pink-400" />
-                Admin Panel
+                <span className="hidden sm:inline">Trang Quản Trị</span>
+                <span className="sm:hidden">Admin</span>
             </h2>
-            <div className="flex bg-black/30 rounded-lg p-1 overflow-x-auto">
-                <button onClick={() => setActiveTab('messages')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'messages' ? 'bg-pink-600 text-white' : 'text-gray-400'}`}>Lời chúc</button>
-                <button onClick={() => setActiveTab('vocab')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'vocab' ? 'bg-pink-600 text-white' : 'text-gray-400'}`}>Từ vựng</button>
-                <button onClick={() => setActiveTab('study_logs')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'study_logs' ? 'bg-pink-600 text-white' : 'text-gray-400'}`}>Nhật ký học</button>
-                <button onClick={() => setActiveTab('upload')} className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'upload' ? 'bg-pink-600 text-white' : 'text-gray-400'}`}>Nhập Excel</button>
+            <div className="flex bg-black/30 rounded-lg p-1 overflow-x-auto no-scrollbar">
+                <button onClick={() => setActiveTab('messages')} className={`px-3 md:px-4 py-1.5 rounded-md text-xs md:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'messages' ? 'bg-pink-600 text-white' : 'text-gray-400 hover:text-white'}`}>Lời chúc</button>
+                <button onClick={() => setActiveTab('vocab')} className={`px-3 md:px-4 py-1.5 rounded-md text-xs md:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'vocab' ? 'bg-pink-600 text-white' : 'text-gray-400 hover:text-white'}`}>Từ vựng</button>
+                <button onClick={() => setActiveTab('study_logs')} className={`px-3 md:px-4 py-1.5 rounded-md text-xs md:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'study_logs' ? 'bg-pink-600 text-white' : 'text-gray-400 hover:text-white'}`}>Nhật ký học</button>
+                <button onClick={() => setActiveTab('upload')} className={`px-3 md:px-4 py-1.5 rounded-md text-xs md:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'upload' ? 'bg-pink-600 text-white' : 'text-gray-400 hover:text-white'}`}>Nhập Excel</button>
             </div>
         </div>
-        <button onClick={onClose} className="px-4 py-2 bg-pink-600 rounded-lg flex items-center gap-2 text-sm font-semibold"><LogOut size={16} /> Thoát</button>
+        <button onClick={onClose} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg flex items-center gap-2 text-sm font-semibold transition-colors whitespace-nowrap ml-2"><LogOut size={16} /> <span className="hidden sm:inline">Thoát</span></button>
       </div>
 
       {/* CONTENT: UPLOAD TAB */}
       {activeTab === 'upload' && (
-          <div className="p-8 max-w-5xl mx-auto w-full overflow-y-auto">
-              {/* ... (Giữ nguyên code upload cũ) ... */}
-              <div className="bg-[#1f2937] p-6 rounded-2xl border border-gray-700">
-                  <div className="flex justify-between items-start mb-6">
+          <div className="p-4 md:p-8 max-w-5xl mx-auto w-full overflow-y-auto">
+              <div className="bg-[#1f2937] p-6 rounded-2xl border border-gray-700 shadow-xl">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                       <div>
-                        <h3 className="text-xl font-bold mb-2 flex items-center gap-2 text-green-400"><Database size={20} /> Nhập từ Excel</h3>
+                        <h3 className="text-xl font-bold mb-2 flex items-center gap-2 text-green-400"><Database size={20} /> Nhập dữ liệu từ Excel</h3>
                         <p className="text-gray-400 text-sm">
-                            Hãy sắp xếp file Excel của bạn theo đúng thứ tự cột bên dưới, sau đó <strong>Copy (Ctrl+C)</strong> và <strong>Dán (Ctrl+V)</strong> vào ô nhập liệu.
+                            Hãy sắp xếp file Excel theo đúng thứ tự cột bên dưới, sau đó <strong>Copy (Ctrl+C)</strong> và <strong>Dán (Ctrl+V)</strong> vào ô bên dưới.
                         </p>
                       </div>
-                      <button onClick={handleSeedData} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold rounded-lg transition-all">
+                      <button onClick={handleSeedData} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-xs font-bold rounded-lg transition-all border border-gray-600">
                           Dùng dữ liệu mẫu
                       </button>
                   </div>
                   
                   {/* EXCEL COLUMN GUIDE */}
-                  <div className="mb-6 overflow-x-auto">
-                      <div className="flex min-w-max gap-1 pb-2">
+                  <div className="mb-6 overflow-x-auto pb-2">
+                      <div className="flex min-w-max gap-1">
                           {[
                               {id: 1, name: "Từ vựng (Word)", ex: "calculator", w: "w-32"},
                               {id: 2, name: "Loại (n/v/adj)", ex: "n", w: "w-24"},
@@ -419,7 +420,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
                       </div>
                   </div>
 
-                  <div className="flex gap-4 mb-4">
+                  <div className="flex flex-col md:flex-row gap-4 mb-4">
                       <div className="flex-1">
                            <textarea 
                             value={rawText}
@@ -428,7 +429,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
                             className="w-full h-48 bg-black/20 border border-gray-600 rounded-xl p-4 text-sm font-mono text-gray-300 focus:outline-none focus:border-green-500 whitespace-pre"
                           />
                       </div>
-                      <div className="w-64 flex flex-col gap-4">
+                      <div className="w-full md:w-64 flex flex-col gap-4">
                           <div>
                               <label className="block text-xs font-bold text-gray-400 mb-2 uppercase">Lưu vào chủ đề:</label>
                               <select 
@@ -444,10 +445,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
                           <button 
                             onClick={handleProcessData}
                             disabled={isProcessing || !rawText.trim()}
-                            className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl font-bold text-white shadow-lg hover:opacity-90 transition-all flex flex-col items-center justify-center gap-1 disabled:opacity-50"
+                            className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl font-bold text-white shadow-lg hover:opacity-90 transition-all flex flex-col items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                               {isProcessing ? <div className="animate-spin h-5 w-5 border-2 border-white rounded-full border-t-transparent"></div> : <Upload size={24} />}
-                              <span>Thêm vào Database</span>
+                              <span>Thêm vào CSDL</span>
                           </button>
                       </div>
                   </div>
@@ -459,9 +460,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
       {activeTab === 'vocab' && (
           <div className="flex flex-col h-full">
                {/* Toolbar */}
-               <div className="p-6 space-y-4">
+               <div className="p-4 md:p-6 space-y-4">
                    <div className="flex flex-wrap gap-4 items-center bg-[#1f2937]/50 p-4 rounded-xl border border-gray-700 justify-between">
-                       <div className="flex items-center gap-4">
+                       <div className="flex items-center gap-4 flex-wrap">
                            <div className="flex items-center gap-2">
                                <Filter size={16} className="text-gray-400" />
                                <select 
@@ -481,7 +482,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
                        </div>
 
                        <div className="flex items-center gap-3">
-                           <span className="text-sm text-gray-400">Đã chọn: <span className="text-white font-bold">{selectedVocabIds.size}</span> / {vocabList.length}</span>
+                           <span className="text-sm text-gray-400 hidden sm:inline">Đã chọn: <span className="text-white font-bold">{selectedVocabIds.size}</span> / {vocabList.length}</span>
                            <button onClick={selectAllVocab} className="px-3 py-1.5 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 rounded-lg text-xs font-bold border border-blue-600/30">
                                {selectedVocabIds.size === vocabList.length ? 'Bỏ chọn' : 'Chọn tất cả'}
                            </button>
@@ -490,23 +491,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
                                 disabled={selectedVocabIds.size === 0}
                                 className={`px-4 py-1.5 rounded-lg text-xs font-bold border flex items-center gap-2 transition-all ${selectedVocabIds.size > 0 ? 'bg-red-500 text-white border-red-600 hover:bg-red-600 shadow-lg' : 'bg-gray-800 text-gray-500 border-gray-700 cursor-not-allowed'}`}
                            >
-                               <Trash2 size={14} /> Xóa {selectedVocabIds.size} từ
+                               <Trash2 size={14} /> <span className="hidden sm:inline">Xóa</span> ({selectedVocabIds.size})
                            </button>
                        </div>
                    </div>
                </div>
 
                {/* Table Header */}
-               <div className="px-6 grid grid-cols-12 gap-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider pb-2 border-b border-gray-700 mx-6">
-                   <div className="col-span-1 text-center">Chọn</div>
-                   <div className="col-span-3">Từ vựng (Word)</div>
-                   <div className="col-span-4">Nghĩa (Meaning)</div>
-                   <div className="col-span-2">Loại/Phiên âm</div>
+               <div className="px-6 grid grid-cols-12 gap-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider pb-2 border-b border-gray-700 mx-4 md:mx-6">
+                   <div className="col-span-2 md:col-span-1 text-center">Chọn</div>
+                   <div className="col-span-4 md:col-span-3">Từ vựng</div>
+                   <div className="col-span-4 md:col-span-4">Nghĩa tiếng Việt</div>
+                   <div className="hidden md:block col-span-2">Loại/Phiên âm</div>
                    <div className="col-span-2 text-right">Chủ đề</div>
                </div>
 
                {/* Vocab List */}
-               <div className="flex-grow overflow-y-auto px-6 pb-20 custom-scrollbar">
+               <div className="flex-grow overflow-y-auto px-4 md:px-6 pb-20 custom-scrollbar">
                    {vocabLoading ? (
                        <div className="flex justify-center py-20"><div className="animate-spin h-8 w-8 border-2 border-purple-500 rounded-full border-t-transparent"></div></div>
                    ) : vocabList.length === 0 ? (
@@ -519,18 +520,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
                                     className={`grid grid-cols-12 gap-4 items-center p-3 rounded-lg border transition-colors cursor-pointer text-sm ${selectedVocabIds.has(vocab.id) ? 'bg-purple-900/20 border-purple-500/50' : 'bg-transparent border-transparent hover:bg-white/5'}`}
                                     onClick={() => toggleSelectVocab(vocab.id)}
                                >
-                                   <div className="col-span-1 flex justify-center">
+                                   <div className="col-span-2 md:col-span-1 flex justify-center">
                                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${selectedVocabIds.has(vocab.id) ? 'bg-purple-500 border-purple-500' : 'border-gray-600'}`}>
                                            {selectedVocabIds.has(vocab.id) && <CheckSquare size={10} className="text-white" />}
                                        </div>
                                    </div>
-                                   <div className="col-span-3 font-bold text-white truncate">{vocab.word}</div>
-                                   <div className="col-span-4 text-gray-300 truncate" title={vocab.meaning}>{vocab.meaning}</div>
-                                   <div className="col-span-2 text-gray-500 text-xs">
+                                   <div className="col-span-4 md:col-span-3 font-bold text-white truncate">{vocab.word}</div>
+                                   <div className="col-span-4 md:col-span-4 text-gray-300 truncate" title={vocab.meaning}>{vocab.meaning}</div>
+                                   <div className="hidden md:block col-span-2 text-gray-500 text-xs">
                                        <span className="text-purple-400 font-bold">{vocab.type}</span> • {vocab.pronunciation}
                                    </div>
                                    <div className="col-span-2 text-right text-xs text-gray-500 bg-white/5 px-2 py-1 rounded w-fit ml-auto">
-                                       {vocab.topicId?.replace('topic_', 'Chủ đề ')}
+                                       {vocab.topicId?.replace('topic_', 'CĐ ')}
                                    </div>
                                </div>
                            ))}
@@ -544,12 +545,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
       {activeTab === 'study_logs' && (
           <div className="flex flex-col h-full">
                {/* Toolbar */}
-               <div className="p-6 space-y-4">
+               <div className="p-4 md:p-6 space-y-4">
                    <div className="flex flex-wrap gap-4 items-center bg-[#1f2937]/50 p-4 rounded-xl border border-gray-700 justify-between">
                        <div className="flex items-center gap-4">
                            <h3 className="text-white font-bold flex items-center gap-2">
                                <Clock size={18} className="text-yellow-400" />
-                               Nhật ký học (100 log gần nhất)
+                               <span className="hidden sm:inline">Nhật ký học (100 log gần nhất)</span>
+                               <span className="sm:hidden">Nhật ký</span>
                            </h3>
                            <button onClick={fetchStudyLogs} className="p-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors" title="Làm mới">
                                <RefreshCw size={16} className={logsLoading ? "animate-spin" : ""} />
@@ -557,7 +559,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
                        </div>
 
                        <div className="flex items-center gap-3">
-                           <span className="text-sm text-gray-400">Đã chọn: <span className="text-white font-bold">{selectedLogIds.size}</span> / {studyLogs.length}</span>
+                           <span className="text-sm text-gray-400 hidden sm:inline">Đã chọn: <span className="text-white font-bold">{selectedLogIds.size}</span></span>
                            <button onClick={selectAllLogs} className="px-3 py-1.5 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 rounded-lg text-xs font-bold border border-blue-600/30">
                                {selectedLogIds.size === studyLogs.length ? 'Bỏ chọn' : 'Chọn tất cả'}
                            </button>
@@ -566,23 +568,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
                                 disabled={selectedLogIds.size === 0}
                                 className={`px-4 py-1.5 rounded-lg text-xs font-bold border flex items-center gap-2 transition-all ${selectedLogIds.size > 0 ? 'bg-red-500 text-white border-red-600 hover:bg-red-600 shadow-lg' : 'bg-gray-800 text-gray-500 border-gray-700 cursor-not-allowed'}`}
                            >
-                               <Trash2 size={14} /> Xóa {selectedLogIds.size} dòng
+                               <Trash2 size={14} /> <span className="hidden sm:inline">Xóa</span> ({selectedLogIds.size})
                            </button>
                        </div>
                    </div>
                </div>
 
                {/* Table Header */}
-               <div className="px-6 grid grid-cols-12 gap-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider pb-2 border-b border-gray-700 mx-6">
-                   <div className="col-span-1 text-center">Chọn</div>
-                   <div className="col-span-3">Người dùng</div>
-                   <div className="col-span-2">Môn học/Thời gian</div>
-                   <div className="col-span-4">Ghi chú</div>
+               <div className="px-6 grid grid-cols-12 gap-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider pb-2 border-b border-gray-700 mx-4 md:mx-6">
+                   <div className="col-span-2 md:col-span-1 text-center">Chọn</div>
+                   <div className="col-span-3 md:col-span-3">Người dùng</div>
+                   <div className="col-span-3 md:col-span-2">Môn/Giờ</div>
+                   <div className="col-span-2 md:col-span-4">Ghi chú</div>
                    <div className="col-span-2 text-right">Ngày giờ</div>
                </div>
 
                {/* Log List */}
-               <div className="flex-grow overflow-y-auto px-6 pb-20 custom-scrollbar">
+               <div className="flex-grow overflow-y-auto px-4 md:px-6 pb-20 custom-scrollbar">
                    {logsLoading ? (
                        <div className="flex justify-center py-20"><div className="animate-spin h-8 w-8 border-2 border-yellow-500 rounded-full border-t-transparent"></div></div>
                    ) : studyLogs.length === 0 ? (
@@ -595,23 +597,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
                                     className={`grid grid-cols-12 gap-4 items-center p-3 rounded-lg border transition-colors cursor-pointer text-sm ${selectedLogIds.has(log.id) ? 'bg-yellow-900/20 border-yellow-500/50' : 'bg-transparent border-transparent hover:bg-white/5'}`}
                                     onClick={() => toggleSelectLog(log.id)}
                                >
-                                   <div className="col-span-1 flex justify-center">
+                                   <div className="col-span-2 md:col-span-1 flex justify-center">
                                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${selectedLogIds.has(log.id) ? 'bg-yellow-500 border-yellow-500' : 'border-gray-600'}`}>
                                            {selectedLogIds.has(log.id) && <CheckSquare size={10} className="text-black" />}
                                        </div>
                                    </div>
-                                   <div className="col-span-3 flex items-center gap-2 overflow-hidden">
-                                        <img src={log.userAvatar} className="w-6 h-6 rounded-full bg-gray-700" alt="" />
+                                   <div className="col-span-3 md:col-span-3 flex items-center gap-2 overflow-hidden">
+                                        <img src={log.userAvatar || `https://api.dicebear.com/7.x/initials/svg?seed=${log.userName}`} className="w-6 h-6 rounded-full bg-gray-700 flex-shrink-0" alt="" />
                                         <div className="truncate font-bold text-white text-xs">{log.userName}</div>
                                    </div>
-                                   <div className="col-span-2 text-gray-300">
+                                   <div className="col-span-3 md:col-span-2 text-gray-300">
                                        <span className="text-yellow-400 font-bold">{log.subject}</span>
                                        <div className="text-[10px] text-gray-500 flex items-center gap-1">
-                                            {log.durationMinutes}/{log.targetMinutes} phút
+                                            {log.durationMinutes}/{log.targetMinutes}p
                                             {log.isCompleted ? <CheckCircle size={10} className="text-green-500"/> : <AlertCircle size={10} className="text-orange-500"/>}
                                        </div>
                                    </div>
-                                   <div className="col-span-4 text-gray-400 text-xs italic truncate" title={log.notes}>
+                                   <div className="col-span-2 md:col-span-4 text-gray-400 text-xs italic truncate" title={log.notes}>
                                        {log.notes || "Không có ghi chú"}
                                    </div>
                                    <div className="col-span-2 text-right text-[10px] text-gray-500">
@@ -629,16 +631,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
       {activeTab === 'messages' && (
         <>
             {/* Toolbar */}
-            <div className="p-6 space-y-4">
+            <div className="p-4 md:p-6 space-y-4">
                 {/* Actions Row */}
                 <div className="flex flex-wrap gap-3 items-center bg-[#1f2937]/50 p-3 rounded-xl border border-gray-700">
                     <button onClick={selectAll} className="flex items-center gap-2 px-3 py-2 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 rounded-lg border border-emerald-600/30 text-xs font-semibold transition-all">
                         <CheckSquare size={14} /> Chọn tất cả
                     </button>
                     <button onClick={deselectAll} className="flex items-center gap-2 px-3 py-2 bg-gray-600/20 text-gray-300 hover:bg-gray-600/30 rounded-lg border border-gray-600/30 text-xs font-semibold transition-all">
-                        <X size={14} /> Bỏ chọn tất cả
+                        <X size={14} /> Bỏ chọn
                     </button>
-                    <div className="h-6 w-px bg-gray-700 mx-2"></div>
+                    <div className="h-6 w-px bg-gray-700 mx-2 hidden sm:block"></div>
                     <button 
                         onClick={() => initiateDelete('messages')} 
                         disabled={selectedIds.size === 0}
@@ -647,7 +649,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
                         <Trash2 size={14} /> Xóa đã chọn ({selectedIds.size})
                     </button>
                     <button onClick={handleExport} className="flex items-center gap-2 px-3 py-2 bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30 rounded-lg border border-cyan-600/30 text-xs font-semibold transition-all ml-auto">
-                        <Download size={14} /> Xuất đã chọn ({selectedIds.size > 0 ? selectedIds.size : messages.length})
+                        <Download size={14} /> Xuất file
                     </button>
                 </div>
 
@@ -667,7 +669,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
             </div>
 
             {/* Content Grid */}
-            <div className="flex-grow overflow-y-auto px-6 pb-20 custom-scrollbar">
+            <div className="flex-grow overflow-y-auto px-4 md:px-6 pb-20 custom-scrollbar">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {filteredMessages.map(msg => (
                         <div 

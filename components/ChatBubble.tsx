@@ -4,22 +4,24 @@ import { ChatMessage } from '../services/geminiService';
 import { Bot, User } from 'lucide-react';
 import Markdown from 'react-markdown';
 
+// Đổi tên Props sang tiếng Việt cho dễ hiểu
 interface ChatBubbleProps {
-  message: ChatMessage;
-  theme: ThemeConfig;
+  duLieuTinNhan: ChatMessage;
+  cauHinhGiaoDien: ThemeConfig;
 }
 
-const ContentRenderer: React.FC<{ text: string }> = ({ text }) => {
-  const [ready, setReady] = useState(false);
+// Component phụ: Chịu trách nhiệm hiển thị nội dung Text + Toán học (LaTeX)
+const BoHienThiNoiDung: React.FC<{ vanBan: string }> = ({ vanBan }) => {
+  const [sanSang, setSanSang] = useState(false);
 
   useEffect(() => {
-    // Check for Katex availability
+    // Kiểm tra xem thư viện Katex (hiển thị toán) đã tải xong chưa
     if ((window as any).katex) {
-        setReady(true);
+        setSanSang(true);
     } else {
         const t = setInterval(() => {
             if ((window as any).katex) {
-                setReady(true);
+                setSanSang(true);
                 clearInterval(t);
             }
         }, 300);
@@ -27,38 +29,44 @@ const ContentRenderer: React.FC<{ text: string }> = ({ text }) => {
     }
   }, []);
 
-  if (!text) return null;
+  if (!vanBan) return null;
 
-  // Split text by LaTeX delimiters
+  // Regex để tách phần công thức toán học ra khỏi văn bản thường
+  // $$...$$ hoặc \[...\] là công thức khối (Block math)
+  // $...$ hoặc \(...\) là công thức dòng (Inline math)
   const regex = /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\$[^\n$]+?\$|\\\([^\n\)]+?\\\))/g;
-  const parts = text.split(regex);
+  const cacPhan = vanBan.split(regex);
 
   return (
     <div className="text-sm md:text-[15px] leading-7 break-words w-full">
-      {parts.map((part, index) => {
-        const isBlockMath = (part.startsWith('$$') && part.endsWith('$$')) || (part.startsWith('\\[') && part.endsWith('\\]'));
-        const isInlineMath = (part.startsWith('$') && part.endsWith('$')) || (part.startsWith('\\(') && part.endsWith('\\)'));
+      {cacPhan.map((phan, index) => {
+        const laCongThucKhoi = (phan.startsWith('$$') && phan.endsWith('$$')) || (phan.startsWith('\\[') && phan.endsWith('\\]'));
+        const laCongThucDong = (phan.startsWith('$') && phan.endsWith('$')) || (phan.startsWith('\\(') && phan.endsWith('\\)'));
 
-        if (isBlockMath) {
-           const tex = part.startsWith('$$') ? part.slice(2, -2) : part.slice(2, -2);
+        if (laCongThucKhoi) {
+           // Xử lý hiển thị công thức toán dạng khối (xuống dòng riêng)
+           const maTeX = phan.startsWith('$$') ? phan.slice(2, -2) : phan.slice(2, -2);
            try {
-              const html = (window as any).katex?.renderToString(tex, { displayMode: true, throwOnError: false });
+              const html = (window as any).katex?.renderToString(maTeX, { displayMode: true, throwOnError: false });
               return <div key={index} dangerouslySetInnerHTML={{ __html: html }} className="my-2 py-1 overflow-x-auto max-w-full" />;
            } catch { 
-              return <code key={index} className="block bg-black/30 p-2 rounded my-2 text-xs font-mono overflow-x-auto">{tex}</code>; 
+              // Nếu lỗi thì hiển thị code gốc
+              return <code key={index} className="block bg-black/30 p-2 rounded my-2 text-xs font-mono overflow-x-auto">{maTeX}</code>; 
            }
         } 
-        else if (isInlineMath) {
-           const tex = part.startsWith('$') ? part.slice(1, -1) : part.slice(2, -2);
+        else if (laCongThucDong) {
+           // Xử lý hiển thị công thức toán cùng dòng
+           const maTeX = phan.startsWith('$') ? phan.slice(1, -1) : phan.slice(2, -2);
            try {
-              const html = (window as any).katex?.renderToString(tex, { displayMode: false, throwOnError: false });
+              const html = (window as any).katex?.renderToString(maTeX, { displayMode: false, throwOnError: false });
               return <span key={index} dangerouslySetInnerHTML={{ __html: html }} className="mx-0.5" />;
            } catch { 
-               return <span key={index} className="bg-black/30 px-1 rounded text-xs font-mono">{tex}</span>; 
+               return <span key={index} className="bg-black/30 px-1 rounded text-xs font-mono">{maTeX}</span>; 
            }
         } 
         else {
-           if (!part) return null;
+           // Xử lý văn bản thường (Markdown: in đậm, in nghiêng, list...)
+           if (!phan) return null;
            return (
              <span key={index} className="markdown-content">
                 <Markdown 
@@ -73,7 +81,7 @@ const ContentRenderer: React.FC<{ text: string }> = ({ text }) => {
                         pre: ({node, ...props}) => <pre className="bg-[#111] p-3 rounded-lg overflow-x-auto my-2 border border-white/10" {...props} />
                     }}
                 >
-                    {part}
+                    {phan}
                 </Markdown>
              </span>
            );
@@ -83,42 +91,44 @@ const ContentRenderer: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
-const ChatBubble: React.FC<ChatBubbleProps> = ({ message, theme }) => {
-  const isUser = message.role === 'user';
+const ChatBubble: React.FC<ChatBubbleProps> = ({ duLieuTinNhan, cauHinhGiaoDien }) => {
+  const laNguoiDung = duLieuTinNhan.role === 'user'; // Kiểm tra xem tin nhắn là của User hay Bot
 
   return (
-    <div className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} mb-3 group`}>
-      <div className={`flex max-w-[92%] md:max-w-[88%] gap-2 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+    <div className={`flex w-full ${laNguoiDung ? 'justify-end' : 'justify-start'} mb-3 group`}>
+      <div className={`flex max-w-[92%] md:max-w-[88%] gap-2 ${laNguoiDung ? 'flex-row-reverse' : 'flex-row'}`}>
         
-        {/* Avatar */}
-        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-auto mb-1 shadow-lg ${isUser ? `bg-gradient-to-br ${theme.buttonGradient}` : 'bg-indigo-600 border border-white/10'}`}>
-            {isUser ? <User size={14} className="text-white" /> : <Bot size={14} className="text-white" />}
+        {/* Avatar (Hình đại diện) */}
+        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-auto mb-1 shadow-lg ${laNguoiDung ? `bg-gradient-to-br ${cauHinhGiaoDien.buttonGradient}` : 'bg-indigo-600 border border-white/10'}`}>
+            {laNguoiDung ? <User size={14} className="text-white" /> : <Bot size={14} className="text-white" />}
         </div>
 
-        {/* Bubble Box */}
+        {/* Bong bóng chat (Khung chứa nội dung) */}
         <div 
             className={`px-4 py-3 rounded-2xl shadow-md min-w-0 overflow-hidden relative ${
-                isUser 
+                laNguoiDung 
                 ? `bg-white/10 text-white rounded-br-none border border-white/10` 
                 : 'bg-[#252540] text-gray-100 rounded-bl-none border border-indigo-500/20'
             }`}
         >
-            {/* Ảnh */}
-            {message.image && (
+            {/* Hiển thị ảnh nếu có */}
+            {duLieuTinNhan.image && (
                 <div className="mb-3 rounded-lg overflow-hidden border border-white/10 bg-black/50">
                     <img 
-                        src={message.image} 
+                        src={duLieuTinNhan.image} 
                         alt="Attachment" 
                         className="w-full h-auto max-h-[250px] object-contain cursor-pointer hover:opacity-90 transition-opacity" 
                         onClick={() => {
+                             // Mở ảnh tab mới khi click
                              const w = window.open("");
-                             w?.document.write(`<body style="margin:0;background:black;display:flex;justify-content:center;align-items:center;height:100vh;"><img src="${message.image}" style="max-width:100%;max-height:100%;"/></body>`);
+                             w?.document.write(`<body style="margin:0;background:black;display:flex;justify-content:center;align-items:center;height:100vh;"><img src="${duLieuTinNhan.image}" style="max-width:100%;max-height:100%;"/></body>`);
                         }}
                     />
                 </div>
             )}
             
-            <ContentRenderer text={message.text} />
+            {/* Hiển thị nội dung text */}
+            <BoHienThiNoiDung vanBan={duLieuTinNhan.text} />
         </div>
       </div>
     </div>
