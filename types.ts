@@ -7,6 +7,7 @@ export interface Message {
   timestamp: number;
   isAnonymous: boolean;
   avatarUrl?: string;
+  userId?: string; // Add userId to link to profile
 }
 
 export interface TimeLeft {
@@ -42,6 +43,10 @@ export interface AppUser {
     displayName: string | null;
     photoURL: string | null;
     isAnonymous?: boolean;
+    // Extended fields
+    bio?: string;          // Giới thiệu bản thân
+    className?: string;    // Tên lớp (VD: 12A1)
+    socialLink?: string;   // Link Facebook/Insta
 }
 
 export interface StudyLog {

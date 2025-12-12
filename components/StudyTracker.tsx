@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/firebase';
 import { StudyLog, ThemeConfig, LeaderboardEntry, AppUser } from '../types';
-import { Play, Pause, Square, CheckCircle, Clock, BookOpen, LogOut, LayoutList, Trophy, User as UserIcon, AlertCircle, ArrowRight, History, Lock, Trash2 } from 'lucide-react';
+import { Play, Pause, Square, CheckCircle, Clock, BookOpen, LogOut, LayoutList, Trophy, User as UserIcon, AlertCircle, ArrowRight, History, Lock, Trash2, GraduationCap, Link as LinkIcon, Quote } from 'lucide-react';
 
 interface StudyTrackerProps {
   theme: ThemeConfig;
   user: AppUser | null; // Receive user from App
+  onViewProfile?: (userId: string) => void;
 }
 
 const SUBJECTS = [
@@ -27,7 +28,7 @@ const MOTIVATIONAL_QUOTES = [
 
 type TabView = 'timer' | 'leaderboard' | 'profile';
 
-const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
+const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile }) => {
   const [activeTab, setActiveTab] = useState<TabView>('timer');
   
   // Data States
@@ -187,10 +188,15 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
           await db.collection("study_logs").doc(logId).delete();
           // Update local state immediately for better UX
           setUserHistory(prev => prev.filter(log => log.id !== logId));
-          // Optional: Update global logs if needed, though they update via onSnapshot
       } catch (e) {
           console.error("Error deleting log:", e);
           alert("Lỗi khi xóa. Vui lòng thử lại.");
+      }
+  };
+
+  const handleUserClick = (userId: string) => {
+      if (onViewProfile) {
+          onViewProfile(userId);
       }
   };
 
@@ -201,35 +207,16 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
       return (
           <div className="flex flex-col items-center gap-2">
             <div className="relative w-24 h-32 md:w-40 md:h-56 lg:w-48 lg:h-64 bg-[#111] rounded-lg perspective shadow-2xl border border-white/10 group">
-                {/* Static Background Number */}
                 <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="font-heading text-6xl md:text-8xl lg:text-9xl font-bold text-[#333]">
-                        {valStr}
-                    </span>
+                    <span className="font-heading text-6xl md:text-8xl lg:text-9xl font-bold text-[#333]">{valStr}</span>
                 </div>
-                
-                {/* Top Half */}
                 <div className="absolute inset-0 h-1/2 overflow-hidden bg-[#1e1e1e] rounded-t-lg border-b border-black z-10 flex items-end justify-center">
-                    <span className="font-heading text-6xl md:text-8xl lg:text-9xl font-bold text-white translate-y-1/2">
-                        {valStr}
-                    </span>
+                    <span className="font-heading text-6xl md:text-8xl lg:text-9xl font-bold text-white translate-y-1/2">{valStr}</span>
                 </div>
-                
-                {/* Bottom Half */}
                 <div className="absolute top-1/2 inset-x-0 bottom-0 overflow-hidden bg-[#1a1a1a] rounded-b-lg border-t border-black/50 z-10 flex items-start justify-center shadow-inner">
-                    <span className="font-heading text-6xl md:text-8xl lg:text-9xl font-bold text-white -translate-y-1/2">
-                        {valStr}
-                    </span>
+                    <span className="font-heading text-6xl md:text-8xl lg:text-9xl font-bold text-white -translate-y-1/2">{valStr}</span>
                 </div>
-                
-                {/* Flip Line */}
                 <div className="absolute top-1/2 left-0 w-full h-[1px] bg-black z-20 shadow-sm"></div>
-                
-                {/* Screw Heads decoration */}
-                <div className="absolute top-2 left-2 w-1.5 h-1.5 bg-[#444] rounded-full shadow-inner z-20"></div>
-                <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-[#444] rounded-full shadow-inner z-20"></div>
-                <div className="absolute bottom-2 left-2 w-1.5 h-1.5 bg-[#444] rounded-full shadow-inner z-20"></div>
-                <div className="absolute bottom-2 right-2 w-1.5 h-1.5 bg-[#444] rounded-full shadow-inner z-20"></div>
             </div>
           </div>
       );
@@ -257,18 +244,11 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
                   </div>
               </div>
               
-              {/* FLIP CLOCK CONTAINER */}
               <div className="flex justify-center items-center gap-2 md:gap-4 mb-8 md:mb-12 scale-75 md:scale-90 lg:scale-100 origin-center">
                   <FlipCard value={hours} label="Giờ" />
-                  <div className="flex flex-col gap-2 md:gap-4 opacity-50 pt-4">
-                      <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-[#555]"></div>
-                      <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-[#555]"></div>
-                  </div>
+                  <div className="flex flex-col gap-2 md:gap-4 opacity-50 pt-4"><div className="w-2 h-2 rounded-full bg-[#555]"></div><div className="w-2 h-2 rounded-full bg-[#555]"></div></div>
                   <FlipCard value={minutes} label="Phút" />
-                  <div className="flex flex-col gap-2 md:gap-4 opacity-50 pt-4">
-                      <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-[#555]"></div>
-                      <div className="w-2 h-2 md:w-3 md:h-3 rounded-full bg-[#555]"></div>
-                  </div>
+                  <div className="flex flex-col gap-2 md:gap-4 opacity-50 pt-4"><div className="w-2 h-2 rounded-full bg-[#555]"></div><div className="w-2 h-2 rounded-full bg-[#555]"></div></div>
                   <FlipCard value={seconds} label="Giây" />
               </div>
 
@@ -280,16 +260,13 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
                       </div>
                       <div className="flex flex-col items-center gap-1">
                           <span className="text-[10px] uppercase tracking-widest opacity-50">Kết thúc</span>
-                          <span className={`font-bold ${remainingSeconds === 0 ? 'text-red-500 animate-pulse' : 'text-white'}`}>
-                              {endTimeStr}
-                          </span>
+                          <span className={`font-bold ${remainingSeconds === 0 ? 'text-red-500 animate-pulse' : 'text-white'}`}>{endTimeStr}</span>
                       </div>
                   </div>
                   <div className="text-center max-w-xl h-10 px-4">
                       <p className="text-white/80 text-sm md:text-lg font-hand transition-opacity duration-1000 line-clamp-2">"{currentQuote}"</p>
                   </div>
                   
-                  {/* Smaller Controls - Updated size w-16 h-16 to fit PC screens better */}
                   <div className="flex justify-center gap-6 mt-2">
                       {!isTimerRunning ? (
                           remainingSeconds > 0 && (
@@ -312,22 +289,21 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
   }
 
   // ----------------------------------------------------------------------
-  // MAIN APP VIEW (LOGGED IN or NOT - CONTENT ALWAYS VISIBLE)
+  // MAIN APP VIEW
   // ----------------------------------------------------------------------
   return (
     <div className="w-full max-w-6xl mx-auto px-4 pb-10">
        
-       {/* USER GREETING & HEADER (More Compact) */}
+       {/* USER GREETING & HEADER */}
        {user ? (
            <div className="flex justify-between items-center mb-6 animate-in slide-in-from-left-4 duration-300">
                 <div className="flex items-center gap-3">
-                        <img src={user.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${user.displayName}`} alt="User" className="w-10 h-10 rounded-full border border-white/20" />
+                        <img src={user.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${user.displayName}`} alt="User" className="w-10 h-10 rounded-full border border-white/20 object-cover" />
                         <div>
                             <h3 className="text-base font-bold text-white leading-tight">{user.displayName}</h3>
                             <p className={`text-[10px] uppercase font-bold tracking-wider ${theme.text}`}>Chiến binh 2026</p>
                         </div>
                 </div>
-                {/* Logout is handled in App.tsx Header now, but we can keep a note or leave blank */}
            </div>
        ) : (
            <div className="mb-6 p-4 rounded-xl bg-orange-500/10 border border-orange-500/30 flex items-center gap-3 animate-in fade-in duration-300">
@@ -339,7 +315,7 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
            </div>
        )}
 
-       {/* SUB-TABS (Clean segmented control) */}
+       {/* SUB-TABS */}
        <div className="grid grid-cols-3 gap-1 bg-black/30 p-1 rounded-xl mb-6 border border-white/5">
             <button onClick={() => setActiveTab('timer')} className={`py-2 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'timer' ? 'bg-white/10 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}>
                 <Clock size={14} className="md:w-4 md:h-4" /> <span className="hidden sm:inline">Bấm giờ</span> <span className="sm:hidden">Học</span>
@@ -377,13 +353,7 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
                           <label className="block text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-wider">Thời gian: {targetMinutes} phút</label>
                           <div className="flex items-center gap-4 bg-black/20 p-3 rounded-xl border border-white/5">
                               <span className="text-xs text-gray-400">5p</span>
-                              <input 
-                                type="range" 
-                                min="5" max="180" step="5" 
-                                value={targetMinutes} 
-                                onChange={(e) => setTargetMinutes(parseInt(e.target.value))} 
-                                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-white touch-none" 
-                              />
+                              <input type="range" min="5" max="180" step="5" value={targetMinutes} onChange={(e) => setTargetMinutes(parseInt(e.target.value))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-white touch-none" />
                               <span className="text-xs text-gray-400">180p</span>
                           </div>
                        </div>
@@ -392,7 +362,6 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
                           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="VD: Giải hết đề Toán 2024..." className="w-full bg-black/20 border border-gray-700 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-white/50 resize-none h-20" />
                        </div>
                        
-                       {/* START BUTTON with Auth Check */}
                        <button onClick={startSession} className={`w-full py-3.5 rounded-xl bg-gradient-to-r ${theme.buttonGradient} text-white font-bold shadow-lg transform hover:-translate-y-1 transition-all flex items-center justify-center gap-2 text-base`}>
                          {user ? <><Play size={18} fill="currentColor" /> BẮT ĐẦU NGAY</> : <><Lock size={18} /> ĐĂNG NHẬP ĐỂ BẮT ĐẦU</>}
                        </button>
@@ -408,10 +377,20 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
                  <div className="space-y-2">
                     {logs.slice(0, 10).map((log) => (
                         <div key={log.id} className="hover-shine glass-panel p-3 rounded-xl flex items-center gap-3 hover:bg-white/5 transition-colors">
-                           <img src={log.userAvatar || `https://api.dicebear.com/7.x/initials/svg?seed=${log.userName}`} alt="avt" className="w-9 h-9 rounded-full border border-gray-600" />
+                           <img 
+                                src={log.userAvatar || `https://api.dicebear.com/7.x/initials/svg?seed=${log.userName}`} 
+                                alt="avt" 
+                                className="w-9 h-9 rounded-full border border-gray-600 object-cover cursor-pointer hover:border-white/50" 
+                                onClick={() => handleUserClick(log.userId)}
+                           />
                            <div className="flex-grow min-w-0">
                                <div className="flex justify-between items-baseline">
-                                  <span className={`font-bold text-sm truncate pr-2 ${user && log.userId === user.uid ? theme.text : 'text-white'}`}>{log.userName}</span>
+                                  <span 
+                                    className={`font-bold text-sm truncate pr-2 cursor-pointer hover:underline ${user && log.userId === user.uid ? theme.text : 'text-white'}`}
+                                    onClick={() => handleUserClick(log.userId)}
+                                  >
+                                      {log.userName}
+                                  </span>
                                   <span className="text-[10px] text-gray-500 flex-shrink-0">{new Date(log.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}</span>
                                </div>
                                <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-2 truncate">
@@ -428,7 +407,7 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
            </div>
        )}
 
-       {/* 2. LEADERBOARD TAB (Optimized for Mobile) */}
+       {/* 2. LEADERBOARD TAB (Giữ nguyên logic) */}
        {activeTab === 'leaderboard' && (
            <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
                <div className="text-center mb-6 md:mb-10">
@@ -436,34 +415,34 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
                    <p className="text-xs text-gray-400">Dựa trên tổng thời gian học tập chăm chỉ</p>
                </div>
 
-               {/* Top 3 Podium: Flexbox for mobile side-by-side scaling */}
+               {/* Top 3 Podium */}
                <div className="flex justify-center items-end gap-2 md:gap-6 mb-8 px-2">
                    {/* Rank 2 */}
                    {leaderboard[1] && (
-                       <div className="hover-shine w-1/3 max-w-[140px] bg-[#1a1a1a] rounded-t-xl p-2 md:p-6 flex flex-col items-center border-t-2 md:border-t-4 border-gray-400 relative">
+                       <div className="hover-shine w-1/3 max-w-[140px] bg-[#1a1a1a] rounded-t-xl p-2 md:p-6 flex flex-col items-center border-t-2 md:border-t-4 border-gray-400 relative group cursor-pointer" onClick={() => handleUserClick(leaderboard[1].userId)}>
                            <div className="absolute -top-3 md:-top-5 w-6 h-6 md:w-10 md:h-10 bg-gray-400 rounded-full flex items-center justify-center font-bold text-black shadow-lg text-xs md:text-base">2</div>
-                           <img src={leaderboard[1].userAvatar} className="w-12 h-12 md:w-20 md:h-20 rounded-full border-2 md:border-4 border-gray-400 mb-2 md:mb-3 object-cover" alt="Top 2" />
-                           <h3 className="font-bold text-xs md:text-lg text-gray-200 line-clamp-1 w-full text-center">{leaderboard[1].userName}</h3>
+                           <img src={leaderboard[1].userAvatar} className="w-12 h-12 md:w-20 md:h-20 rounded-full border-2 md:border-4 border-gray-400 mb-2 md:mb-3 object-cover transition-transform group-hover:scale-105" alt="Top 2" />
+                           <h3 className="font-bold text-xs md:text-lg text-gray-200 line-clamp-1 w-full text-center group-hover:text-white transition-colors">{leaderboard[1].userName}</h3>
                            <p className="text-gray-500 text-[10px] md:text-sm mb-1">{leaderboard[1].sessionsCount} buổi</p>
                            <div className="bg-gray-800 px-2 py-0.5 md:px-4 md:py-1 rounded-full text-white font-mono font-bold text-[10px] md:text-sm">{leaderboard[1].totalMinutes}p</div>
                        </div>
                    )}
-                   {/* Rank 1 (Big) */}
+                   {/* Rank 1 */}
                    {leaderboard[0] && (
-                       <div className="hover-shine w-1/3 max-w-[160px] bg-[#222] rounded-t-xl p-3 md:p-8 flex flex-col items-center border-t-4 border-yellow-400 pb-8 md:pb-10 shadow-2xl shadow-yellow-500/10 z-10 relative -top-4 md:-top-0">
+                       <div className="hover-shine w-1/3 max-w-[160px] bg-[#222] rounded-t-xl p-3 md:p-8 flex flex-col items-center border-t-4 border-yellow-400 pb-8 md:pb-10 shadow-2xl shadow-yellow-500/10 z-10 relative -top-4 md:-top-0 group cursor-pointer" onClick={() => handleUserClick(leaderboard[0].userId)}>
                            <div className="absolute -top-4 md:-top-6 w-8 h-8 md:w-12 md:h-12 bg-yellow-400 rounded-full flex items-center justify-center font-bold text-black shadow-lg text-sm md:text-xl">1</div>
                            <Trophy className="text-yellow-400 mb-1 md:mb-2 w-4 h-4 md:w-8 md:h-8" />
-                           <img src={leaderboard[0].userAvatar} className="w-16 h-16 md:w-24 md:h-24 rounded-full border-2 md:border-4 border-yellow-400 mb-2 md:mb-4 object-cover" alt="Top 1" />
-                           <h3 className="font-bold text-xs md:text-xl text-white line-clamp-1 w-full text-center">{leaderboard[0].userName}</h3>
+                           <img src={leaderboard[0].userAvatar} className="w-16 h-16 md:w-24 md:h-24 rounded-full border-2 md:border-4 border-yellow-400 mb-2 md:mb-4 object-cover transition-transform group-hover:scale-105" alt="Top 1" />
+                           <h3 className="font-bold text-xs md:text-xl text-white line-clamp-1 w-full text-center group-hover:text-yellow-400 transition-colors">{leaderboard[0].userName}</h3>
                            <div className="mt-2 bg-gradient-to-r from-yellow-600 to-orange-600 px-3 py-1 md:px-6 md:py-2 rounded-full text-white font-mono font-bold text-xs md:text-lg shadow-lg">{leaderboard[0].totalMinutes}p</div>
                        </div>
                    )}
                    {/* Rank 3 */}
                    {leaderboard[2] && (
-                       <div className="hover-shine w-1/3 max-w-[140px] bg-[#1a1a1a] rounded-t-xl p-2 md:p-6 flex flex-col items-center border-t-2 md:border-t-4 border-orange-700 relative">
+                       <div className="hover-shine w-1/3 max-w-[140px] bg-[#1a1a1a] rounded-t-xl p-2 md:p-6 flex flex-col items-center border-t-2 md:border-t-4 border-orange-700 relative group cursor-pointer" onClick={() => handleUserClick(leaderboard[2].userId)}>
                            <div className="absolute -top-3 md:-top-5 w-6 h-6 md:w-10 md:h-10 bg-orange-700 rounded-full flex items-center justify-center font-bold text-white shadow-lg text-xs md:text-base">3</div>
-                           <img src={leaderboard[2].userAvatar} className="w-12 h-12 md:w-20 md:h-20 rounded-full border-2 md:border-4 border-orange-700 mb-2 md:mb-3 object-cover" alt="Top 3" />
-                           <h3 className="font-bold text-xs md:text-lg text-orange-200 line-clamp-1 w-full text-center">{leaderboard[2].userName}</h3>
+                           <img src={leaderboard[2].userAvatar} className="w-12 h-12 md:w-20 md:h-20 rounded-full border-2 md:border-4 border-orange-700 mb-2 md:mb-3 object-cover transition-transform group-hover:scale-105" alt="Top 3" />
+                           <h3 className="font-bold text-xs md:text-lg text-orange-200 line-clamp-1 w-full text-center group-hover:text-white transition-colors">{leaderboard[2].userName}</h3>
                            <p className="text-gray-500 text-[10px] md:text-sm mb-1">{leaderboard[2].sessionsCount} buổi</p>
                            <div className="bg-gray-800 px-2 py-0.5 md:px-4 md:py-1 rounded-full text-white font-mono font-bold text-[10px] md:text-sm">{leaderboard[2].totalMinutes}p</div>
                        </div>
@@ -473,11 +452,11 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
                {/* List Ranks 4+ */}
                <div className="bg-[#111] rounded-2xl overflow-hidden border border-white/5">
                    {leaderboard.slice(3).map((user, idx) => (
-                       <div key={user.userId} className="hover-shine flex items-center p-3 md:p-4 border-b border-white/5 hover:bg-white/5 transition-colors">
+                       <div key={user.userId} className="hover-shine flex items-center p-3 md:p-4 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer group" onClick={() => handleUserClick(user.userId)}>
                            <div className="w-8 text-center font-bold text-gray-600 text-sm">#{idx + 4}</div>
-                           <img src={user.userAvatar} className="w-8 h-8 md:w-10 md:h-10 rounded-full mx-3" alt="User" />
+                           <img src={user.userAvatar} className="w-8 h-8 md:w-10 md:h-10 rounded-full mx-3 object-cover group-hover:border-white/50 border border-transparent transition-all" alt="User" />
                            <div className="flex-grow">
-                               <h4 className="font-bold text-gray-300 text-sm">{user.userName}</h4>
+                               <h4 className="font-bold text-gray-300 text-sm group-hover:text-white transition-colors">{user.userName}</h4>
                                <p className="text-[10px] text-gray-500">{user.sessionsCount} buổi học</p>
                            </div>
                            <div className="font-mono font-bold text-white text-sm">{user.totalMinutes}p</div>
@@ -497,19 +476,45 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user }) => {
                        <div className="md:col-span-1">
                            <div className="hover-shine glass-panel p-6 rounded-2xl text-center sticky top-24">
                                <div className="relative inline-block mb-4">
-                                    <img src={user.photoURL || ""} className="w-20 h-20 md:w-24 md:h-24 rounded-full border-4 border-white/10" alt="Me" />
-                                    <div className="absolute bottom-0 right-0 bg-green-500 w-5 h-5 rounded-full border-2 border-black"></div>
+                                    <img src={user.photoURL || ""} className="w-24 h-24 md:w-32 md:h-32 rounded-full border-4 border-white/10 object-cover shadow-2xl" alt="Me" />
+                                    <div className="absolute bottom-1 right-1 bg-green-500 w-5 h-5 rounded-full border-2 border-[#1e1e2e]"></div>
                                </div>
                                <h2 className="text-xl md:text-2xl font-bold text-white mb-1">{user.displayName}</h2>
+                               {user.className && <p className="text-sm text-indigo-400 font-bold mb-1">{user.className}</p>}
                                
-                               <div className="grid grid-cols-2 gap-3 text-left mt-6">
-                                   <div className="bg-white/5 p-3 rounded-xl">
+                               {/* BIO SECTION */}
+                               {user.bio && (
+                                   <div className="mt-3 relative px-2">
+                                       <Quote size={12} className="absolute top-0 left-0 text-gray-600 -scale-x-100" />
+                                       <p className="text-sm text-gray-300 italic px-4 leading-relaxed font-hand">
+                                           {user.bio}
+                                       </p>
+                                       <Quote size={12} className="absolute bottom-0 right-0 text-gray-600" />
+                                   </div>
+                               )}
+
+                               {/* CONTACT LINK */}
+                               {user.socialLink && (
+                                   <div className="mt-4 pt-4 border-t border-white/5">
+                                       <a 
+                                        href={user.socialLink} 
+                                        target="_blank" 
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-2 text-xs font-bold text-blue-400 hover:text-blue-300 hover:underline transition-all"
+                                       >
+                                           <LinkIcon size={12} /> Kết nối với tôi
+                                       </a>
+                                   </div>
+                               )}
+                               
+                               <div className="grid grid-cols-2 gap-3 text-left mt-6 pt-4 border-t border-white/5">
+                                   <div className="bg-black/30 p-3 rounded-xl border border-white/5">
                                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Tổng giờ học</p>
                                        <p className="text-lg md:text-xl font-bold text-white flex items-baseline gap-1">
                                            {userHistory.reduce((acc, curr) => acc + curr.durationMinutes, 0)} <span className="text-[10px] font-normal text-gray-400">phút</span>
                                        </p>
                                    </div>
-                                   <div className="bg-white/5 p-3 rounded-xl">
+                                   <div className="bg-black/30 p-3 rounded-xl border border-white/5">
                                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Số buổi</p>
                                        <p className="text-lg md:text-xl font-bold text-white">{userHistory.length}</p>
                                    </div>

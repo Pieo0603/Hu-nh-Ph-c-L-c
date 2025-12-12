@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { Message, ThemeConfig } from '../types';
-import { Quote, Maximize2, X, Download, Globe2, MessageCircle } from 'lucide-react';
+import { Quote, Maximize2, X, Download, Globe2, MessageCircle, ArrowUp } from 'lucide-react';
 
 interface MessageListProps {
   messages: Message[];
   theme: ThemeConfig;
+  onViewProfile?: (userId: string) => void;
 }
 
-const MessageList: React.FC<MessageListProps> = ({ messages, theme }) => {
+const MessageList: React.FC<MessageListProps> = ({ messages, theme, onViewProfile }) => {
   const [viewingImage, setViewingImage] = useState<string | null>(null);
 
   const formatDate = (timestamp: number) => {
@@ -26,6 +27,19 @@ const MessageList: React.FC<MessageListProps> = ({ messages, theme }) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const scrollToForm = () => {
+    const formElement = document.getElementById('message-form');
+    if (formElement) {
+        formElement.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleUserClick = (userId?: string) => {
+      if (userId && onViewProfile) {
+          onViewProfile(userId);
+      }
   };
 
   return (
@@ -64,6 +78,8 @@ const MessageList: React.FC<MessageListProps> = ({ messages, theme }) => {
           <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6 mx-auto">
             {messages.map((msg) => {
               const { date, time } = formatDate(msg.timestamp);
+              const canViewProfile = !!msg.userId;
+
               return (
                 <div 
                   key={msg.id} 
@@ -74,10 +90,14 @@ const MessageList: React.FC<MessageListProps> = ({ messages, theme }) => {
                       <img 
                         src={msg.avatarUrl || `https://api.dicebear.com/7.x/notionists/svg?seed=${msg.author}`} 
                         alt="avt" 
-                        className="w-9 h-9 rounded-full border border-white/10 bg-white/5 shadow-sm"
+                        className={`w-9 h-9 rounded-full border border-white/10 bg-white/5 shadow-sm object-cover ${canViewProfile ? 'cursor-pointer hover:border-white/50 transition-colors' : ''}`}
+                        onClick={() => handleUserClick(msg.userId)}
                       />
                       <div className="flex flex-col min-w-0">
-                        <span className={`text-sm font-bold ${msg.isAnonymous ? 'text-gray-400 italic' : theme.text} truncate`}>
+                        <span 
+                            className={`text-sm font-bold truncate ${msg.isAnonymous ? 'text-gray-400 italic' : theme.text} ${canViewProfile ? 'cursor-pointer hover:underline' : ''}`}
+                            onClick={() => handleUserClick(msg.userId)}
+                        >
                           {msg.author}
                         </span>
                         <span className="text-[10px] text-gray-500 font-medium">
@@ -110,7 +130,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, theme }) => {
                         className="w-full h-auto object-cover transform group-hover/image:scale-105 transition-transform duration-700"
                         loading="lazy"
                       />
-                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/image:opacity-100 transition-opacity flex items-center justify-center">
+                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <Maximize2 size={24} className="text-white drop-shadow-lg" />
                       </div>
                     </div>
@@ -125,6 +145,21 @@ const MessageList: React.FC<MessageListProps> = ({ messages, theme }) => {
             })}
           </div>
         )}
+
+        {/* BOTTOM CALL TO ACTION */}
+        {messages.length > 5 && (
+            <div className="mt-16 text-center animate-in slide-in-from-bottom-4">
+                <p className="text-gray-400 text-sm mb-4">Bạn cũng có điều muốn nói?</p>
+                <button 
+                    onClick={scrollToForm}
+                    className={`inline-flex items-center gap-2 px-6 py-3 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold transition-all hover:scale-105`}
+                >
+                    <ArrowUp size={16} />
+                    <span>Viết lời chúc ngay</span>
+                </button>
+            </div>
+        )}
+
       </div>
 
       {/* Image Modal / Lightbox */}

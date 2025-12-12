@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Send, Sparkles, User, X, PenTool } from 'lucide-react';
+import { Camera, Send, Sparkles, User, X, PenTool, Globe } from 'lucide-react';
 import { generateWish } from '../services/geminiService';
 import { Message, ThemeConfig } from '../types';
 
@@ -97,7 +97,7 @@ const MessageForm: React.FC<MessageFormProps> = ({ onAddMessage, theme }) => {
   };
 
   return (
-    <div className="w-full max-w-lg mx-auto mt-12 mb-12 px-4 relative z-20">
+    <div id="message-form" className="w-full max-w-lg mx-auto mt-12 mb-12 px-4 relative z-20 scroll-mt-28">
       {/* Decorative Elements */}
       <div className={`absolute -inset-1 rounded-[2rem] bg-gradient-to-r ${theme.gradientTitle} opacity-30 blur-xl transition-all duration-500`}></div>
       
@@ -110,7 +110,9 @@ const MessageForm: React.FC<MessageFormProps> = ({ onAddMessage, theme }) => {
              </div>
              <div>
                 <h3 className="text-lg font-bold text-white">Đăng bài công khai</h3>
-                <p className="text-xs text-gray-400">Chia sẻ cảm xúc, ảnh kỷ niệm với mọi người</p>
+                <p className="text-xs text-gray-400 flex items-center gap-1">
+                  <Globe size={10} /> Tin nhắn sẽ hiển thị với mọi người
+                </p>
              </div>
         </div>
         

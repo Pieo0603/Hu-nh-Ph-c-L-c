@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import StarBackground from './components/StarBackground';
 import Countdown from './components/Countdown';
 import MessageForm from './components/MessageForm';
@@ -9,8 +9,9 @@ import StudyTracker from './components/StudyTracker'; // This is now conceptuall
 import EnglishHub from './components/EnglishHub'; // New English Learning Component
 import MusicTab from './components/MusicTab';
 import AiAssistant from './components/AiAssistant'; // IMPORT AI ASSISTANT
+import UserProfileModal from './components/UserProfileModal'; // NEW COMPONENT
 import { Message, ThemeConfig, AppUser } from './types';
-import { Settings, Home, Palette, Music, Timer, BrainCircuit, LogOut, LogIn, User as UserIcon, X, ArrowRight, Edit3, Camera, BookOpen, Calculator, ScrollText } from 'lucide-react';
+import { Settings, Home, Palette, Music, Timer, BrainCircuit, LogOut, LogIn, User as UserIcon, X, ArrowRight, Edit3, Camera, BookOpen, Calculator, ScrollText, PenTool, Link as LinkIcon, GraduationCap, FileText, RotateCw } from 'lucide-react';
 
 // FIX: Import firebase from 'firebase/compat/app' for Types
 import firebase from 'firebase/compat/app';
@@ -98,6 +99,7 @@ const App: React.FC = () => {
 
   // Auth State - Now properly typed with firebase.User
   const [firebaseUser, setFirebaseUser] = useState<firebase.User | null>(null);
+  const [userExtras, setUserExtras] = useState<Partial<AppUser>>({}); // Store bio, class, etc.
   const [guestUser, setGuestUser] = useState<AppUser | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [guestNameInput, setGuestNameInput] = useState('');
@@ -105,15 +107,34 @@ const App: React.FC = () => {
   // Edit Profile State
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editName, setEditName] = useState('');
-  const [editAvatarSeed, setEditAvatarSeed] = useState('');
+  const [editAvatarSeed, setEditAvatarSeed] = useState(''); // For DiceBear
+  const [editCustomAvatar, setEditCustomAvatar] = useState<string | null>(null); // For uploaded image
+  const [editBio, setEditBio] = useState('');
+  const [editClass, setEditClass] = useState('');
+  const [editSocial, setEditSocial] = useState('');
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // View Other User Profile State
+  const [viewingUserId, setViewingUserId] = useState<string | null>(null);
 
   // YouTube State
   const [youtubeVideo, setYoutubeVideo] = useState<{id: string, title: string, channel: string, cover: string} | null>(null);
+  
+  // Scroll State for Floating Button
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
   // Tính toán user cuối cùng (Ưu tiên Firebase user, nếu không có thì dùng Guest)
   const currentUser: AppUser | null = firebaseUser 
-    ? { uid: firebaseUser.uid, displayName: firebaseUser.displayName, photoURL: firebaseUser.photoURL, isAnonymous: false }
+    ? { 
+        uid: firebaseUser.uid, 
+        displayName: firebaseUser.displayName, 
+        photoURL: userExtras.photoURL || firebaseUser.photoURL, // Prefer custom avatar from Firestore
+        isAnonymous: false,
+        bio: userExtras.bio,
+        className: userExtras.className,
+        socialLink: userExtras.socialLink
+      }
     : guestUser;
 
   // Listen for realtime updates from Firebase (Messages)
@@ -128,7 +149,6 @@ const App: React.FC = () => {
             })) as Message[];
             setMessages(msgs);
         }, (error) => {
-            // Silently fail for Firestore permission errors in guest mode
             if (error.code !== 'permission-denied') {
                  console.error("Lỗi khi đọc dữ liệu Firebase:", error);
             }
@@ -139,81 +159,54 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Listen for Auth Changes (Firebase) - Handles both Popup and Redirect flows
+  // Scroll listener
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const handleScroll = () => {
+      // Show button if scrolled down more than 500px
+      if (window.scrollY > 500 && activeTab === 'home') {
+        setShowScrollButton(true);
+      } else {
+        setShowScrollButton(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [activeTab]);
+
+  // Listen for Auth Changes (Firebase)
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
        setFirebaseUser(user);
        if (user) {
-         setGuestUser(null); // Clear guest if logged in real
+         setGuestUser(null);
          setShowLoginModal(false);
+         
+         // Fetch extra profile data from Firestore
+         try {
+             const userDoc = await db.collection('users').doc(user.uid).get();
+             if (userDoc.exists) {
+                 setUserExtras(userDoc.data() as Partial<AppUser>);
+             }
+         } catch (e) {
+             console.error("Error fetching user profile:", e);
+         }
+       } else {
+           setUserExtras({});
        }
     });
-
-    // Check for Redirect Result (Cần thiết cho mobile/redirect flow)
-    // Wrap in try-catch to ignore "operation-not-supported" error
-    auth.getRedirectResult().then((result) => {
-      if (result.user) {
-        console.log("Đăng nhập qua Redirect thành công:", result.user.email);
-        setFirebaseUser(result.user);
-        setShowLoginModal(false);
-      }
-    }).catch((error) => {
-      // FIX: Bắt và bỏ qua lỗi môi trường (Environment/Storage restriction)
-      const isEnvError = error.code === 'auth/operation-not-supported-in-this-environment' || 
-                         error.message?.includes('operation is not supported') ||
-                         error.code === 'auth/web-storage-unsupported';
-      
-      if (isEnvError) {
-         // Không in lỗi đỏ ra console nữa
-         console.warn("Lưu ý: Chế độ Redirect Auth bị hạn chế do môi trường trình duyệt (Chặn Cookie/Storage).");
-         return; 
-      }
-
-      if (error.code === 'auth/unauthorized-domain') {
-          console.error("Domain unauthorized:", window.location.hostname);
-          // Không alert ở đây để tránh spam khi load trang, chỉ alert khi user bấm nút
-          return;
-      }
-      
-      if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/redirect-cancelled-by-user') {
-         console.error("Lỗi khi nhận kết quả Redirect:", error);
-      }
-    });
-
     return () => unsubscribe();
   }, []);
 
   const handleGlobalLoginGoogle = async () => {
       try {
-          // Thử đăng nhập bằng Popup trước (Tốt cho Desktop)
           await auth.signInWithPopup(googleProvider);
       } catch (e: any) {
           console.error("Popup login failed", e);
-          
-          if (e.message === "Auth not supported") return; // Stop if mocked
-
-          if (e.code === 'auth/unauthorized-domain') {
-              alert(`Lỗi: Tên miền "${window.location.hostname}" chưa được phép chạy Google Login.\n\nCÁCH KHẮC PHỤC:\n1. Vào Firebase Console > Authentication > Settings > Authorized Domains > Thêm domain này.\n\nHOẶC:\n2. Dùng chế độ "Tên tạm" (Khách) ở ngay bên dưới để vào luôn.`);
-              return;
-          }
-
-          // Nếu Popup thất bại (bất kể lỗi gì, nhất là trên mobile/in-app browser), 
-          // chuyển sang dùng Redirect (Chuyển trang).
+          if (e.message === "Auth not supported") return;
           try {
-              console.log("Attempting redirect login...");
               await auth.signInWithRedirect(googleProvider);
           } catch (e2: any) {
-              console.error("Redirect failed", e2);
-              const isEnvError = e2.code === 'auth/operation-not-supported-in-this-environment' || 
-                                 e2.message?.includes('operation is not supported');
-              
-              if (isEnvError) {
-                  alert("Trình duyệt này chặn cookie nên không thể đăng nhập Google. Hãy dùng chế độ 'Tên tạm' bên dưới nhé!");
-              } else if (e2.code === 'auth/unauthorized-domain') {
-                   alert(`Lỗi tên miền chưa cấp phép: ${window.location.hostname}.\nHãy dùng chế độ Khách bên dưới.`);
-              } else {
-                  alert(`Đăng nhập thất bại. Lỗi: ${e2.message}`);
-              }
+              alert(`Đăng nhập thất bại. Vui lòng thử lại hoặc dùng chế độ Khách.`);
           }
       }
   };
@@ -225,7 +218,9 @@ const App: React.FC = () => {
           uid: 'guest-' + Date.now(),
           displayName: guestNameInput,
           photoURL: `https://api.dicebear.com/7.x/notionists/svg?seed=${guestNameInput}`,
-          isAnonymous: true
+          isAnonymous: true,
+          bio: "Khách ghé thăm",
+          className: "Tự do"
       };
       setGuestUser(newGuest);
       setShowLoginModal(false);
@@ -237,36 +232,129 @@ const App: React.FC = () => {
       }
       setGuestUser(null);
       setFirebaseUser(null);
+      setUserExtras({});
+  };
+
+  // --- LOGIC XỬ LÝ ẢNH ---
+  const processAvatarImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          // Resize nhỏ xuống để lưu Firestore (Max 300x300)
+          const MAX_SIZE = 300; 
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+              if (width > MAX_SIZE) {
+                  height *= MAX_SIZE / width;
+                  width = MAX_SIZE;
+              }
+          } else {
+              if (height > MAX_SIZE) {
+                  width *= MAX_SIZE / height;
+                  height = MAX_SIZE;
+              }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Nén chất lượng 0.6
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+          resolve(compressedDataUrl);
+        };
+        img.onerror = (err) => reject(err);
+      };
+      reader.onerror = (err) => reject(err);
+    });
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+          if (file.size > 5 * 1024 * 1024) {
+              alert("Ảnh quá lớn (Max 5MB).");
+              return;
+          }
+          try {
+              const base64 = await processAvatarImage(file);
+              setEditCustomAvatar(base64);
+              setEditAvatarSeed(''); // Clear seed if custom image used
+          } catch (error) {
+              console.error(error);
+              alert("Lỗi xử lý ảnh.");
+          }
+      }
   };
 
   // --- LOGIC CẬP NHẬT PROFILE ---
   const openEditProfile = () => {
     if (currentUser) {
         setEditName(currentUser.displayName || '');
-        // Thử trích xuất seed từ URL cũ nếu có, nếu không thì lấy tên
+        setEditBio(currentUser.bio || '');
+        setEditClass(currentUser.className || '');
+        setEditSocial(currentUser.socialLink || '');
+        
+        // Check if current photo is a DiceBear seed or custom base64
         const currentUrl = currentUser.photoURL || '';
-        const seedMatch = currentUrl.match(/seed=([^&]*)/);
-        setEditAvatarSeed(seedMatch ? seedMatch[1] : (currentUser.displayName || 'user'));
+        if (currentUrl.includes('api.dicebear.com')) {
+            const seedMatch = currentUrl.match(/seed=([^&]*)/);
+            setEditAvatarSeed(seedMatch ? seedMatch[1] : (currentUser.displayName || 'user'));
+            setEditCustomAvatar(null);
+        } else {
+            // Assume it's a custom URL or Base64
+            setEditCustomAvatar(currentUrl);
+            setEditAvatarSeed('');
+        }
         setShowEditProfile(true);
     }
   };
 
   const handleUpdateProfile = async () => {
-      if (!firebaseUser) return; // Chỉ cho phép update nếu là user thật (Google)
+      if (!firebaseUser) return; 
       if (!editName.trim()) {
           alert("Tên không được để trống!");
           return;
       }
       setIsUpdatingProfile(true);
       try {
-          const newPhotoURL = `https://api.dicebear.com/7.x/notionists/svg?seed=${editAvatarSeed}`;
-          // Use v8 updateProfile method on user object
+          // Determine final photo URL
+          let finalPhotoURL = editCustomAvatar;
+          if (!finalPhotoURL && editAvatarSeed) {
+              finalPhotoURL = `https://api.dicebear.com/7.x/notionists/svg?seed=${editAvatarSeed}`;
+          }
+          if (!finalPhotoURL) finalPhotoURL = firebaseUser.photoURL || "";
+
+          // 1. Update Core Auth Profile
           await firebaseUser.updateProfile({
               displayName: editName,
-              photoURL: newPhotoURL
+              photoURL: finalPhotoURL
           });
-          // Force UI update
-          setFirebaseUser({ ...firebaseUser, displayName: editName, photoURL: newPhotoURL } as firebase.User);
+
+          // 2. Update Extended Firestore Profile
+          const extendedData = {
+              displayName: editName,
+              photoURL: finalPhotoURL,
+              bio: editBio,
+              className: editClass,
+              socialLink: editSocial,
+              updatedAt: Date.now()
+          };
+          
+          await db.collection('users').doc(firebaseUser.uid).set(extendedData, { merge: true });
+
+          // 3. Update Local State
+          setUserExtras(extendedData);
+          setFirebaseUser({ ...firebaseUser, displayName: editName, photoURL: finalPhotoURL } as firebase.User);
+          
           setShowEditProfile(false);
           alert("Cập nhật hồ sơ thành công!");
       } catch (error) {
@@ -280,6 +368,7 @@ const App: React.FC = () => {
   const handleAddMessage = async (newMsg: Omit<Message, 'id' | 'timestamp'>) => {
       await db.collection("wishes").add({
         ...newMsg,
+        userId: currentUser?.uid, // Save userId to link to profile
         timestamp: Date.now()
       });
   };
@@ -302,6 +391,17 @@ const App: React.FC = () => {
      setYoutubeVideo({ id: videoId, title, channel, cover: thumbnail });
   };
 
+  const scrollToMessageForm = () => {
+      const formElement = document.getElementById('message-form');
+      if (formElement) {
+          formElement.scrollIntoView({ behavior: 'smooth' });
+      }
+  };
+
+  const handleViewProfile = (userId: string) => {
+      setViewingUserId(userId);
+  };
+
   return (
     <div className="min-h-screen text-white relative flex flex-col items-center">
       <StarBackground />
@@ -317,7 +417,7 @@ const App: React.FC = () => {
                        <img 
                           src={currentUser.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser.displayName}`} 
                           alt="Avt"
-                          className="w-7 h-7 rounded-full border border-white/30 bg-black/20" 
+                          className="w-7 h-7 rounded-full border border-white/30 bg-black/20 object-cover" 
                        />
                        <span className="text-xs font-bold text-white max-w-[80px] sm:max-w-[120px] truncate hidden sm:block">
                           {currentUser.displayName}
@@ -342,7 +442,7 @@ const App: React.FC = () => {
               )}
            </div>
 
-           {/* CENTER: TABS - Updated positioning for mobile */}
+           {/* CENTER: TABS */}
            <div className="absolute left-1/2 transform -translate-x-1/2 top-14 md:top-3 flex gap-1 bg-black/60 backdrop-blur-xl p-1 rounded-full border border-white/10 shadow-2xl">
               <button 
                 onClick={() => setActiveTab('home')}
@@ -376,7 +476,6 @@ const App: React.FC = () => {
 
            {/* RIGHT: THEME & ADMIN */}
            <div className="flex items-center gap-2 z-20">
-              {/* Theme Trigger */}
               <div className="relative">
                 <button 
                   onClick={() => setShowThemePicker(!showThemePicker)}
@@ -385,8 +484,6 @@ const App: React.FC = () => {
                 >
                   <Palette size={18} />
                 </button>
-                
-                {/* Collapsible Theme Picker */}
                 {showThemePicker && (
                   <div className="absolute top-full right-0 mt-2 glass-panel p-2 rounded-2xl flex flex-col gap-2 animate-in slide-in-from-top-2 duration-200 items-center border border-white/20 shadow-2xl bg-[#0f0c29]/90">
                     {Object.values(THEMES).map((theme) => (
@@ -404,7 +501,6 @@ const App: React.FC = () => {
                 )}
               </div>
 
-              {/* Admin Button */}
               <button 
                   onClick={() => setShowAdmin(true)} 
                   className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 transition-all shadow-lg"
@@ -416,17 +512,13 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* LOGIN MODAL (GOOGLE OR GUEST) */}
+      {/* LOGIN MODAL */}
       {showLoginModal && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
             <div className={`relative bg-[#1e1e2e] rounded-3xl w-full max-w-md overflow-hidden border border-white/10 shadow-2xl transform scale-100`}>
-                <button 
-                    onClick={() => setShowLoginModal(false)}
-                    className="absolute top-4 right-4 p-2 bg-white/5 hover:bg-white/10 rounded-full text-gray-400 transition-colors"
-                >
+                <button onClick={() => setShowLoginModal(false)} className="absolute top-4 right-4 p-2 bg-white/5 hover:bg-white/10 rounded-full text-gray-400 transition-colors">
                     <X size={20} />
                 </button>
-                
                 <div className="p-8">
                     <div className="text-center mb-8">
                         <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full mx-auto flex items-center justify-center mb-4 shadow-lg shadow-indigo-500/30">
@@ -435,44 +527,22 @@ const App: React.FC = () => {
                         <h3 className="text-2xl font-bold text-white mb-2">Chào mừng sĩ tử!</h3>
                         <p className="text-gray-400 text-sm">Chọn cách đăng nhập để lưu thành tích học tập</p>
                     </div>
-
                     <div className="space-y-4">
-                        {/* Option 1: Google */}
-                        <button 
-                            onClick={handleGlobalLoginGoogle}
-                            className="w-full py-4 rounded-xl bg-white text-gray-900 font-bold flex items-center justify-center gap-3 hover:bg-gray-100 transition-all shadow-lg group relative overflow-hidden"
-                        >
+                        <button onClick={handleGlobalLoginGoogle} className="w-full py-4 rounded-xl bg-white text-gray-900 font-bold flex items-center justify-center gap-3 hover:bg-gray-100 transition-all shadow-lg group relative overflow-hidden">
                             <span className="font-extrabold text-blue-600">G</span>
                             <span>Đăng nhập bằng Google</span>
-                            <div className="absolute right-4 opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-1">
-                                <ArrowRight size={16} />
-                            </div>
+                            <div className="absolute right-4 opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-1"><ArrowRight size={16} /></div>
                         </button>
-                        
                         <div className="relative flex items-center py-2">
                             <div className="flex-grow border-t border-gray-700"></div>
                             <span className="flex-shrink-0 mx-4 text-gray-500 text-xs font-bold uppercase">Hoặc dùng tên tạm</span>
                             <div className="flex-grow border-t border-gray-700"></div>
                         </div>
-
-                        {/* Option 2: Guest Form */}
                         <form onSubmit={handleGlobalLoginGuest} className="bg-black/20 p-4 rounded-xl border border-white/5">
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-2 ml-1">Tên hiển thị</label>
                             <div className="flex gap-2">
-                                <input 
-                                    type="text" 
-                                    value={guestNameInput}
-                                    onChange={(e) => setGuestNameInput(e.target.value)}
-                                    placeholder="VD: Quyết tâm 28đ"
-                                    className="flex-grow bg-black/30 border border-gray-600 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-white/50 text-sm transition-colors"
-                                />
-                                <button 
-                                    type="submit"
-                                    disabled={!guestNameInput.trim()}
-                                    className={`px-4 py-2.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-white font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
-                                >
-                                    Vào
-                                </button>
+                                <input type="text" value={guestNameInput} onChange={(e) => setGuestNameInput(e.target.value)} placeholder="VD: Quyết tâm 28đ" className="flex-grow bg-black/30 border border-gray-600 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-white/50 text-sm transition-colors" />
+                                <button type="submit" disabled={!guestNameInput.trim()} className={`px-4 py-2.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-white font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed`}>Vào</button>
                             </div>
                             <p className="text-[10px] text-gray-500 mt-2 italic">* Tài khoản khách chỉ lưu dữ liệu trên thiết bị này.</p>
                         </form>
@@ -482,16 +552,16 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* EDIT PROFILE MODAL (NEW) */}
+      {/* EDIT PROFILE MODAL */}
       {showEditProfile && (
           <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-              <div className="bg-[#1e1e2e] rounded-3xl w-full max-w-sm border border-white/10 shadow-2xl relative overflow-hidden">
+              <div className="bg-[#1e1e2e] rounded-3xl w-full max-w-md border border-white/10 shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
                   <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-indigo-500/20 to-transparent pointer-events-none"></div>
                   <button onClick={() => setShowEditProfile(false)} className="absolute top-4 right-4 p-2 bg-white/5 hover:bg-white/10 rounded-full text-white/50 hover:text-white transition-colors z-10">
                       <X size={20} />
                   </button>
 
-                  <div className="p-6 pt-8 flex flex-col items-center">
+                  <div className="p-6 pt-8 flex flex-col items-center flex-grow overflow-y-auto custom-scrollbar">
                       <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                           <Edit3 size={18} className="text-indigo-400" /> Chỉnh sửa hồ sơ
                       </h3>
@@ -499,63 +569,114 @@ const App: React.FC = () => {
                       {/* Avatar Preview & Selection */}
                       <div className="relative mb-6 group">
                           <img 
-                            src={`https://api.dicebear.com/7.x/notionists/svg?seed=${editAvatarSeed}`} 
+                            src={editCustomAvatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${editAvatarSeed || 'default'}`} 
                             alt="Avatar Preview" 
-                            className="w-24 h-24 rounded-full border-4 border-[#2a2a3e] bg-white shadow-xl"
+                            className="w-24 h-24 rounded-full border-4 border-[#2a2a3e] bg-white shadow-xl object-cover"
                           />
-                          <button 
-                             onClick={() => setEditAvatarSeed(Math.random().toString(36).substring(7))}
-                             className="absolute bottom-0 right-0 p-2 bg-indigo-500 hover:bg-indigo-600 rounded-full text-white shadow-lg transition-transform hover:scale-110 border border-[#1e1e2e]"
-                             title="Đổi avatar ngẫu nhiên"
-                          >
-                             <Camera size={14} />
-                          </button>
+                          <div className="flex gap-2 absolute -bottom-2 left-1/2 transform -translate-x-1/2">
+                              {/* Nút Upload ảnh */}
+                              <label className="p-2 bg-indigo-500 hover:bg-indigo-600 rounded-full text-white shadow-lg transition-transform hover:scale-110 border border-[#1e1e2e] cursor-pointer" title="Tải ảnh lên">
+                                  <Camera size={14} />
+                                  <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} />
+                              </label>
+                              {/* Nút Random Dicebear */}
+                              <button 
+                                onClick={() => { setEditAvatarSeed(Math.random().toString(36)); setEditCustomAvatar(null); }}
+                                className="p-2 bg-purple-500 hover:bg-purple-600 rounded-full text-white shadow-lg transition-transform hover:scale-110 border border-[#1e1e2e]"
+                                title="Avatar ngẫu nhiên"
+                              >
+                                <RotateCw size={14} />
+                              </button>
+                          </div>
                       </div>
 
                       <div className="w-full space-y-4">
+                          {/* Tên hiển thị */}
                           <div>
-                              <label className="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Tên hiển thị</label>
-                              <input 
-                                  type="text" 
-                                  value={editName} 
-                                  onChange={(e) => setEditName(e.target.value)}
-                                  className="w-full bg-black/30 border border-gray-600 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 transition-colors"
-                              />
-                          </div>
-                          
-                          {/* Seed Input (Optional advanced) */}
-                          <div>
-                              <label className="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Mã Avatar (Seed)</label>
-                              <div className="flex gap-2">
+                              <label className="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Tên hiển thị <span className="text-red-500">*</span></label>
+                              <div className="relative">
                                   <input 
                                       type="text" 
-                                      value={editAvatarSeed} 
-                                      onChange={(e) => setEditAvatarSeed(e.target.value)}
-                                      className="flex-grow bg-black/30 border border-gray-600 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                                      value={editName} 
+                                      onChange={(e) => setEditName(e.target.value)}
+                                      className="w-full bg-black/30 border border-gray-600 rounded-xl px-4 py-3 pl-10 text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                                      placeholder="Tên của bạn"
                                   />
+                                  <UserIcon size={16} className="absolute left-3 top-3.5 text-gray-500" />
                               </div>
-                              <p className="text-[10px] text-gray-500 mt-1 ml-1">Nhập bất kỳ chữ gì để tạo avatar mới.</p>
                           </div>
 
-                          <button 
-                              onClick={handleUpdateProfile}
-                              disabled={isUpdatingProfile}
-                              className="w-full py-3 mt-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                          >
-                              {isUpdatingProfile ? <div className="animate-spin w-4 h-4 border-2 border-white rounded-full border-t-transparent"></div> : <ArrowRight size={18} />}
-                              <span>Lưu thay đổi</span>
-                          </button>
-                      </div>
+                          {/* Lớp & Trường */}
+                          <div>
+                              <label className="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Lớp / Trường</label>
+                              <div className="relative">
+                                  <input 
+                                      type="text" 
+                                      value={editClass} 
+                                      onChange={(e) => setEditClass(e.target.value)}
+                                      className="w-full bg-black/30 border border-gray-600 rounded-xl px-4 py-3 pl-10 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                                      placeholder="VD: 12A1 - THPT Chuyên..."
+                                  />
+                                  <GraduationCap size={16} className="absolute left-3 top-3.5 text-gray-500" />
+                              </div>
+                          </div>
 
+                          {/* Liên hệ */}
+                          <div>
+                              <label className="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Link liên hệ (FB/Insta)</label>
+                              <div className="relative">
+                                  <input 
+                                      type="text" 
+                                      value={editSocial} 
+                                      onChange={(e) => setEditSocial(e.target.value)}
+                                      className="w-full bg-black/30 border border-gray-600 rounded-xl px-4 py-3 pl-10 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors"
+                                      placeholder="https://facebook.com/..."
+                                  />
+                                  <LinkIcon size={16} className="absolute left-3 top-3.5 text-gray-500" />
+                              </div>
+                          </div>
+
+                           {/* Bio */}
+                           <div>
+                              <label className="block text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Giới thiệu ngắn</label>
+                              <div className="relative">
+                                  <textarea 
+                                      value={editBio} 
+                                      onChange={(e) => setEditBio(e.target.value)}
+                                      className="w-full bg-black/30 border border-gray-600 rounded-xl px-4 py-3 pl-10 text-white text-sm focus:outline-none focus:border-indigo-500 transition-colors h-24 resize-none"
+                                      placeholder="Câu nói yêu thích, mục tiêu..."
+                                  />
+                                  <FileText size={16} className="absolute left-3 top-3.5 text-gray-500" />
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+
+                  <div className="p-4 border-t border-white/10 bg-[#1a1a2e]">
+                      <button 
+                          onClick={handleUpdateProfile}
+                          disabled={isUpdatingProfile}
+                          className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                          {isUpdatingProfile ? <div className="animate-spin w-4 h-4 border-2 border-white rounded-full border-t-transparent"></div> : <ArrowRight size={18} />}
+                          <span>Lưu hồ sơ</span>
+                      </button>
                       {!firebaseUser && (
-                          <p className="text-xs text-red-400 mt-4 text-center bg-red-500/10 p-2 rounded-lg">
-                              * Bạn đang dùng tài khoản khách. Thay đổi này chỉ lưu trên trình duyệt hiện tại.
+                          <p className="text-xs text-red-400 mt-2 text-center">
+                              * Tài khoản khách: Dữ liệu chỉ lưu tạm thời trên máy này.
                           </p>
                       )}
                   </div>
               </div>
           </div>
       )}
+
+      {/* VIEW USER PROFILE MODAL */}
+      <UserProfileModal 
+        userId={viewingUserId} 
+        isOpen={!!viewingUserId} 
+        onClose={() => setViewingUserId(null)} 
+      />
 
       {/* Main Admin Dashboard Overlay */}
       {showAdmin && (
@@ -567,15 +688,24 @@ const App: React.FC = () => {
           />
       )}
 
+      {/* FLOATING ACTION BUTTON */}
+      {showScrollButton && activeTab === 'home' && !showAdmin && (
+          <button 
+              onClick={scrollToMessageForm}
+              className={`fixed z-30 bottom-24 left-6 md:bottom-6 md:left-auto md:right-[50%] md:translate-x-[50%] px-5 py-3 rounded-full shadow-2xl flex items-center gap-2 animate-in slide-in-from-bottom-10 transition-transform hover:scale-105 active:scale-95 bg-[#1a1a2e] border border-white/20`}
+          >
+              <div className={`p-1.5 rounded-full bg-gradient-to-br ${currentTheme.buttonGradient}`}>
+                  <PenTool size={16} className="text-white" />
+              </div>
+              <span className="font-bold text-sm text-white">Gửi lời chúc</span>
+          </button>
+      )}
+
       <div className={`w-full ${showAdmin ? 'hidden' : ''}`}>
         
         {/* TAB 1: HOME */}
         {activeTab === 'home' && (
           <div className="animate-in fade-in duration-500 pb-24">
-            {/* 
-                UPDATED: margin-top changed from mt-44 to mt-28 (mobile) and mt-40 (desktop) 
-                to move the text up slightly but keep it safe from navbar.
-            */}
             <header className="mt-28 md:mt-40 text-center px-4 z-10">
                 <h1 className={`text-2xl md:text-5xl font-extrabold uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r ${currentTheme.gradientTitle} mb-3 drop-shadow-lg transition-all duration-500 leading-normal py-4`}>
                 ĐẾM NGƯỢC ĐẾN NGÀY THI <br className="md:hidden" /> THPT QUỐC GIA 2026
@@ -588,7 +718,11 @@ const App: React.FC = () => {
             <main className="w-full max-w-7xl px-4 z-10 flex flex-col items-center mx-auto">
                 <Countdown targetDate={EXAM_DATE} theme={currentTheme} />
                 <MessageForm onAddMessage={handleAddMessage} theme={currentTheme} />
-                <MessageList messages={messages} theme={currentTheme} />
+                <MessageList 
+                    messages={messages} 
+                    theme={currentTheme} 
+                    onViewProfile={handleViewProfile}
+                />
             </main>
             
             <footer className="w-full text-center py-6 text-[10px] text-gray-600 z-10">
@@ -601,7 +735,11 @@ const App: React.FC = () => {
         {activeTab === 'timer' && (
            <div className="animate-in fade-in slide-in-from-right-4 duration-500 pt-20 pb-24">
                {/* Pass current user (Google or Guest) to StudyTracker */}
-               <StudyTracker theme={currentTheme} user={currentUser} />
+               <StudyTracker 
+                    theme={currentTheme} 
+                    user={currentUser} 
+                    onViewProfile={handleViewProfile}
+               />
            </div>
         )}
 
@@ -693,7 +831,7 @@ const App: React.FC = () => {
         {/* GLOBAL COMPONENTS */}
         <MusicPlayer theme={currentTheme} youtubeVideo={youtubeVideo} />
         
-        {/* AI ASSISTANT: Visible on Home, Timer, and Learning tabs */}
+        {/* AI ASSISTANT */}
         {(activeTab === 'home' || activeTab === 'timer' || activeTab === 'learning') && (
             <AiAssistant theme={currentTheme} />
         )}

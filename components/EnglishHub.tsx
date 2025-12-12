@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../services/firebase';
 import { ThemeConfig, VocabItem, Topic, AppUser } from '../types';
-import { BookOpen, HelpCircle, Volume2, RotateCw, Check, X, ArrowLeft, BrainCircuit, Code, Save, ChevronRight, Trophy, Meh, Smile, Loader2, Lock, BarChart3, Clock, Flame, PieChart, AlertTriangle } from 'lucide-react';
+import { BookOpen, HelpCircle, Volume2, RotateCw, Check, X, ArrowLeft, BrainCircuit, Code, Save, ChevronRight, Trophy, Meh, Smile, Loader2, Lock, BarChart3, Clock, Flame, PieChart, AlertTriangle, Settings, Mic, Star } from 'lucide-react';
 
 interface EnglishHubProps {
   theme: ThemeConfig;
@@ -21,18 +21,17 @@ interface UserTopicProgress {
 }
 
 // --- SOUND ASSETS ---
-// Sử dụng CDN mp3 ngắn gọn, nhẹ
 const SOUNDS = {
-    flip: 'https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3', // ĐỔI: Tiếng lật thẻ mới (Card Slide/Flick)
-    correct: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3', // Tiếng Ping đúng
-    wrong: 'https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3', // Tiếng Bleep sai
-    win: 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3' // Tiếng thắng lớn
+    flip: 'https://assets.mixkit.co/active_storage/sfx/2578/2578-preview.mp3',
+    correct: 'https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3',
+    wrong: 'https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3',
+    win: 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3'
 };
 
 const playSound = (type: keyof typeof SOUNDS) => {
     try {
         const audio = new Audio(SOUNDS[type]);
-        audio.volume = 0.5; // Giảm âm lượng một chút
+        audio.volume = 0.5;
         audio.play().catch(e => console.log("Audio play blocked", e));
     } catch (e) {
         console.error("Audio error", e);
@@ -46,9 +45,65 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user, onBack }) => {
   const [vocabList, setVocabList] = useState<VocabItem[]>([]);
   const [loading, setLoading] = useState(false);
   
+  // Voice Settings State
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+
   // Stats Data
   const [userProgress, setUserProgress] = useState<Record<string, UserTopicProgress>>({});
-  const [totalVocabCount, setTotalVocabCount] = useState(0);
+
+  // --- LOAD VOICES LOGIC (UPDATED FOR TFLAT STYLE) ---
+  useEffect(() => {
+    const loadVoices = () => {
+        let voices = window.speechSynthesis.getVoices();
+        // Chỉ lấy giọng tiếng Anh
+        voices = voices.filter(v => v.lang.startsWith('en'));
+
+        // Sắp xếp giọng để tìm "Google US English" (Giọng TFlat chuẩn)
+        voices.sort((a, b) => {
+            const getScore = (v: SpeechSynthesisVoice) => {
+                // Ưu tiên tuyệt đối giọng Google US (Giọng chị Google/TFlat)
+                if (v.name === "Google US English") return 1000;
+                if (v.name.includes("Google US English")) return 900;
+                
+                // Sau đó đến các giọng US khác
+                if (v.name.includes("US")) return 100;
+                if (v.lang === "en-US") return 80;
+                
+                // Giọng Anh-Anh hoặc giọng máy tính khác
+                if (v.name.includes("Zira")) return 50; 
+                if (v.name.includes("Samantha")) return 40;
+                
+                return 0;
+            };
+            return getScore(b) - getScore(a);
+        });
+
+        setAvailableVoices(voices);
+
+        if (voices.length > 0) {
+            // Mặc định chọn giọng điểm cao nhất (Google US)
+            setSelectedVoice(voices[0]);
+        }
+    };
+
+    loadVoices();
+    // Chrome cần sự kiện này để load voices khi sẵn sàng
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, []);
+
+  // Helper to test voice
+  const testVoice = (voice: SpeechSynthesisVoice) => {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance("Hello. I am the voice of T-Flat dictionary.");
+      u.voice = voice;
+      u.rate = 0.6; // Tốc độ chậm 0.6 để rõ âm
+      window.speechSynthesis.speak(u);
+      setSelectedVoice(voice);
+  };
 
   // Load Topics from Firebase or Default
   useEffect(() => {
@@ -70,7 +125,6 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user, onBack }) => {
             const progressMap: Record<string, UserTopicProgress> = {};
             snapshot.docs.forEach(doc => {
                 const data = doc.data();
-                // Doc ID format: userId_topicId. We need to parse or store topicId in doc
                 const topicId = data.topicId;
                 if (topicId) {
                     progressMap[topicId] = data as UserTopicProgress;
@@ -108,24 +162,13 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user, onBack }) => {
     }
   }, [selectedTopic]);
 
-  // Time Tracking Logic
-  useEffect(() => {
-      let interval: any;
-      if (user && selectedTopic && mode !== 'menu' && mode !== 'stats') {
-          interval = setInterval(async () => {
-              // Time tracking logic placeholder
-          }, 1000);
-      }
-      return () => clearInterval(interval);
-  }, [user, selectedTopic, mode]);
-
   const handleSelectTopic = (topic: Topic) => {
     if (!user) {
         alert("Vui lòng đăng nhập (Góc trái) để truy cập bài học và lưu tiến độ!");
         return;
     }
     setSelectedTopic(topic);
-    setMode('flashcard'); // Default mode
+    setMode('flashcard');
   };
 
   const handleBackToMenu = () => {
@@ -167,18 +210,31 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user, onBack }) => {
   };
 
   return (
-    <div className="w-full mx-auto animate-in fade-in duration-500">
+    <div className="w-full mx-auto animate-in fade-in duration-500 relative">
       
       {/* HEADER: TITLE & BACK BUTTON */}
       {selectedTopic ? (
-          <div className="flex items-center gap-4 mb-6">
-              <button onClick={handleBackToMenu} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors">
-                  <ArrowLeft size={20} />
-              </button>
-              <div>
-                  <h2 className="text-xl font-bold text-white">{selectedTopic.title}</h2>
-                  <p className="text-xs text-gray-400">{selectedTopic.description}</p>
+          <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <button onClick={handleBackToMenu} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors">
+                    <ArrowLeft size={20} />
+                </button>
+                <div>
+                    <h2 className="text-xl font-bold text-white">{selectedTopic.title}</h2>
+                    <p className="text-xs text-gray-400">{selectedTopic.description}</p>
+                </div>
               </div>
+              <button 
+                onClick={() => setShowVoiceSettings(true)}
+                className="p-2 bg-white/10 rounded-full hover:bg-white/20 text-gray-300 flex items-center gap-2"
+                title="Cài đặt giọng đọc"
+              >
+                <div className="flex flex-col items-end">
+                    <span className="text-[10px] text-gray-400">Giọng đọc</span>
+                    <span className="text-xs font-bold text-yellow-400 max-w-[80px] truncate">{selectedVoice?.name.replace('Google US English', 'TFlat Chuẩn').split(' ')[0] || 'Auto'}</span>
+                </div>
+                <Settings size={20} />
+              </button>
           </div>
       ) : (
           /* Main Menu Header with Stats Button */
@@ -197,14 +253,68 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user, onBack }) => {
                     <p className="text-gray-400 text-sm mt-1">Luyện từ vựng & Code mỗi ngày</p>
                   </div>
               </div>
-              {user && (
-                  <button 
-                    onClick={() => setMode(mode === 'stats' ? 'menu' : 'stats')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${mode === 'stats' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                  >
-                      {mode === 'stats' ? <><ArrowLeft size={16} /> Quay lại</> : <><BarChart3 size={16} /> Thống kê</>}
-                  </button>
-              )}
+              <div className="flex gap-2">
+                 {/* Main menu voice settings */}
+                 <button 
+                    onClick={() => setShowVoiceSettings(true)}
+                    className="p-2.5 bg-white/10 rounded-xl hover:bg-white/20 text-gray-300"
+                    title="Cài đặt giọng đọc"
+                 >
+                    <Settings size={20} />
+                 </button>
+                 {user && (
+                    <button 
+                        onClick={() => setMode(mode === 'stats' ? 'menu' : 'stats')}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${mode === 'stats' ? 'bg-white text-black' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                    >
+                        {mode === 'stats' ? <><ArrowLeft size={16} /> Quay lại</> : <><BarChart3 size={16} /> Thống kê</>}
+                    </button>
+                 )}
+              </div>
+          </div>
+      )}
+
+      {/* VOICE SETTINGS MODAL */}
+      {showVoiceSettings && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-[#1e1e2e] rounded-2xl border border-white/10 shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+                  <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[#252540]">
+                      <h3 className="font-bold text-white flex items-center gap-2"><Settings size={18} /> Cài đặt giọng đọc</h3>
+                      <button onClick={() => setShowVoiceSettings(false)} className="p-1 hover:bg-white/10 rounded-full"><X size={18} /></button>
+                  </div>
+                  <div className="p-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                      <p className="text-xs text-gray-400 mb-4 bg-yellow-500/10 p-3 rounded-lg border border-yellow-500/20">
+                         💡 <strong>Mẹo:</strong> Hãy chọn giọng <strong>"Google US English"</strong> để có phát âm chuẩn giống TFlat/MochiMochi nhất.
+                      </p>
+                      <div className="space-y-2">
+                          {availableVoices.map((v, i) => {
+                              const isRecommended = v.name.includes("Google US English");
+                              return (
+                                <button 
+                                    key={i}
+                                    onClick={() => testVoice(v)}
+                                    className={`w-full text-left p-3 rounded-xl border flex items-center justify-between group transition-all ${selectedVoice?.name === v.name ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300' : 'bg-[#151520] border-white/5 text-gray-300 hover:bg-white/5'}`}
+                                >
+                                    <div className="flex flex-col">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold text-sm">{v.name}</span>
+                                            {isRecommended && <span className="bg-yellow-500/20 text-yellow-400 text-[10px] px-1.5 py-0.5 rounded font-bold border border-yellow-500/30">Chuẩn TFlat</span>}
+                                        </div>
+                                        <span className="text-[10px] text-gray-500">{v.lang}</span>
+                                    </div>
+                                    {selectedVoice?.name === v.name && <Check size={16} className="text-indigo-400" />}
+                                </button>
+                              );
+                          })}
+                          {availableVoices.length === 0 && (
+                              <p className="text-center text-red-400 text-sm py-4">Không tìm thấy giọng đọc nào. Vui lòng kiểm tra cài đặt trình duyệt.</p>
+                          )}
+                      </div>
+                  </div>
+                  <div className="p-4 border-t border-white/5 bg-[#252540] flex justify-end">
+                      <button onClick={() => setShowVoiceSettings(false)} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white font-bold text-sm">Xong</button>
+                  </div>
+              </div>
           </div>
       )}
 
@@ -213,10 +323,8 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user, onBack }) => {
          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {topics.map(topic => {
                 const isLocked = !user;
-                // Get progress for this topic
                 const prog = userProgress[topic.id];
                 const learnedCount = (prog?.memorized?.length || 0) + (prog?.learning?.length || 0);
-                // Simulate total count (or pass it if known). Assume ~20 words per topic for demo UI
                 const totalEstimated = 20; 
                 const percent = Math.min(100, Math.round((learnedCount / totalEstimated) * 100));
 
@@ -234,7 +342,6 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user, onBack }) => {
                         <span className="text-4xl group-hover:scale-110 transition-transform">{topic.icon}</span>
                         <h3 className="font-bold text-white text-center">{topic.title}</h3>
                         
-                        {/* Progress Bar (Only if user exists) */}
                         {user && (
                             <div className="w-full mt-2">
                                 <div className="flex justify-between text-[10px] text-gray-400 mb-1">
@@ -271,22 +378,38 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user, onBack }) => {
       )}
 
       {selectedTopic && !loading && vocabList.length > 0 && mode === 'flashcard' && (
-          <FlashcardView vocabList={vocabList} theme={theme} onSaveProgress={(wordId, status) => saveProgress(selectedTopic.id, 'flashcard', { wordId, status })} onSaveTime={(seconds) => saveProgress(selectedTopic.id, 'time', { seconds })} />
+          <FlashcardView 
+            vocabList={vocabList} 
+            theme={theme} 
+            voice={selectedVoice}
+            onSaveProgress={(wordId, status) => saveProgress(selectedTopic.id, 'flashcard', { wordId, status })} 
+            onSaveTime={(seconds) => saveProgress(selectedTopic.id, 'time', { seconds })} 
+          />
       )}
 
       {selectedTopic && !loading && vocabList.length > 0 && mode === 'quiz' && (
-          <QuizView vocabList={vocabList} theme={theme} onSaveScore={(score) => saveProgress(selectedTopic.id, 'quiz', { score })} onSaveTime={(seconds) => saveProgress(selectedTopic.id, 'time', { seconds })} />
+          <QuizView 
+            vocabList={vocabList} 
+            theme={theme} 
+            voice={selectedVoice}
+            onSaveScore={(score) => saveProgress(selectedTopic.id, 'quiz', { score })} 
+            onSaveTime={(seconds) => saveProgress(selectedTopic.id, 'time', { seconds })} 
+          />
       )}
 
       {selectedTopic && !loading && vocabList.length > 0 && mode === 'listening' && (
-          <ListeningView vocabList={vocabList} theme={theme} />
+          <ListeningView 
+            vocabList={vocabList} 
+            theme={theme} 
+            voice={selectedVoice}
+          />
       )}
 
       {selectedTopic && mode === 'code' && (
           <CodeSnippetView topicId={selectedTopic.id} theme={theme} />
       )}
 
-      {/* BOTTOM NAVIGATION BAR (FIXED) */}
+      {/* BOTTOM NAVIGATION BAR */}
       {selectedTopic && (
           <div className="fixed bottom-4 left-4 right-4 z-40 bg-[#1a1a2e]/90 backdrop-blur-xl border border-white/10 rounded-2xl p-2 shadow-2xl flex justify-between md:justify-center gap-1 md:gap-4 overflow-x-auto no-scrollbar">
               <button onClick={() => setMode('flashcard')} className={`flex-1 md:flex-none flex flex-col items-center justify-center py-2 px-4 rounded-xl transition-all ${mode === 'flashcard' ? `bg-white/10 text-white` : 'text-gray-400 hover:text-white'}`}>
@@ -313,7 +436,7 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user, onBack }) => {
 
 // --- SUB COMPONENTS ---
 
-// 1. USER STATS VIEW
+// 1. USER STATS VIEW (Keep same)
 const UserStatsView: React.FC<{ progress: Record<string, UserTopicProgress>, theme: ThemeConfig }> = ({ progress, theme }) => {
     // 1. Calculate Aggregates
     const allProgress = Object.values(progress) as UserTopicProgress[];
@@ -451,13 +574,14 @@ const UserStatsView: React.FC<{ progress: Record<string, UserTopicProgress>, the
     );
 };
 
-// 2. FLASHCARD (Updated with Auto-Pronounce & Save Logic & Timer)
+// 2. FLASHCARD
 const FlashcardView: React.FC<{ 
     vocabList: VocabItem[], 
     theme: ThemeConfig, 
+    voice: SpeechSynthesisVoice | null,
     onSaveProgress: (wordId: string, status: 'memorized' | 'learning') => void,
     onSaveTime: (seconds: number) => void
-}> = ({ vocabList, theme, onSaveProgress, onSaveTime }) => {
+}> = ({ vocabList, theme, voice, onSaveProgress, onSaveTime }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);
     
@@ -474,48 +598,32 @@ const FlashcardView: React.FC<{
     // AUTO PRONOUNCE LOGIC
     useEffect(() => {
         if (currentWord) {
-            // Delay slightly to let the card transition complete or flip happen
             const timer = setTimeout(() => {
                 const utterance = new SpeechSynthesisUtterance(currentWord.word);
                 utterance.lang = 'en-US';
-                utterance.rate = 0.8;
-                // Only speak if not flipped (looking at English word) or just switched
+                if (voice) utterance.voice = voice;
+                utterance.rate = 0.6; // Changed to 0.6 for clearer pronunciation
                 if (!isFlipped) {
+                    window.speechSynthesis.cancel();
                     window.speechSynthesis.speak(utterance);
                 }
             }, 500);
             return () => clearTimeout(timer);
         }
-    }, [currentIndex, currentWord, isFlipped]);
+    }, [currentIndex, currentWord, isFlipped, voice]);
 
-    // CSS Styles for 3D Effect
-    const containerStyle: React.CSSProperties = {
-        perspective: '1000px',
-    };
-    
+    const containerStyle: React.CSSProperties = { perspective: '1000px' };
     const cardStyle: React.CSSProperties = {
-        width: '100%',
-        height: '100%',
-        position: 'relative',
-        transition: 'transform 0.6s',
-        transformStyle: 'preserve-3d',
+        width: '100%', height: '100%', position: 'relative',
+        transition: 'transform 0.6s', transformStyle: 'preserve-3d',
         transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
     };
-
     const faceStyle: React.CSSProperties = {
-        position: 'absolute',
-        width: '100%',
-        height: '100%',
-        backfaceVisibility: 'hidden',
-        WebkitBackfaceVisibility: 'hidden', // Safari support
-        borderRadius: '1.5rem',
-        boxShadow: '0 20px 50px -12px rgba(0, 0, 0, 0.5)',
+        position: 'absolute', width: '100%', height: '100%',
+        backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden',
+        borderRadius: '1.5rem', boxShadow: '0 20px 50px -12px rgba(0, 0, 0, 0.5)',
     };
-
-    const backFaceStyle: React.CSSProperties = {
-        ...faceStyle,
-        transform: 'rotateY(180deg)',
-    };
+    const backFaceStyle: React.CSSProperties = { ...faceStyle, transform: 'rotateY(180deg)' };
 
     const handleFlip = () => {
         playSound('flip');
@@ -523,13 +631,9 @@ const FlashcardView: React.FC<{
     };
 
     const handleGrade = (status: 'memorized' | 'learning') => {
-        // Save to Firebase
         onSaveProgress(currentWord.id, status);
-
-        // Sound Effect
         if (status === 'memorized') playSound('correct');
         else playSound('wrong');
-
         setIsFlipped(false);
         setTimeout(() => {
              setCurrentIndex((prev) => (prev + 1) % vocabList.length);
@@ -537,10 +641,12 @@ const FlashcardView: React.FC<{
     };
 
     const speak = (e: React.MouseEvent) => {
-        e.stopPropagation(); // QUAN TRỌNG: Ngăn lật thẻ khi bấm loa
+        e.stopPropagation();
+        window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(currentWord.word);
-        utterance.lang = 'en-US'; // Đọc tiếng Anh
-        utterance.rate = 0.8; 
+        utterance.lang = 'en-US';
+        if (voice) utterance.voice = voice;
+        utterance.rate = 0.6; // 0.6 for click to speak
         window.speechSynthesis.speak(utterance);
     };
 
@@ -552,42 +658,19 @@ const FlashcardView: React.FC<{
             
             <div className="w-full h-56 md:h-96 mb-6 cursor-pointer group select-none" style={containerStyle} onClick={handleFlip}>
                 <div style={cardStyle}>
-                    
                     {/* FRONT SIDE */}
                     <div style={faceStyle} className="bg-white flex flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden">
-                        
-                        {/* Type Indicator */}
                         <div className="absolute top-4 left-6 md:top-8 md:left-8 flex flex-col items-start gap-1">
                              <div className="w-8 h-1.5 bg-gray-200 rounded-full"></div>
-                             <span className="text-gray-400 text-xs font-bold uppercase tracking-wide mt-1">
-                                {currentWord.type}
-                             </span>
+                             <span className="text-gray-400 text-xs font-bold uppercase tracking-wide mt-1">{currentWord.type}</span>
                         </div>
-                        
-                        {/* Audio Button */}
-                        <button 
-                            onClick={speak} 
-                            className="absolute top-4 right-6 md:top-8 md:right-8 w-10 h-10 md:w-12 md:h-12 bg-yellow-400 hover:bg-yellow-500 text-white rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 z-20 active:scale-95"
-                            title="Nghe phát âm"
-                        >
+                        <button onClick={speak} className="absolute top-4 right-6 md:top-8 md:right-8 w-10 h-10 md:w-12 md:h-12 bg-yellow-400 hover:bg-yellow-500 text-white rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 z-20 active:scale-95" title="Nghe phát âm">
                             <Volume2 size={20} fill="currentColor" strokeWidth={2.5} />
                         </button>
-                        
                         <div className="flex flex-col items-center justify-center h-full text-center mt-2 w-full">
-                            {/* Từ vựng chính - Giảm size chữ */}
-                            <h3 className="text-3xl md:text-5xl font-extrabold text-[#1a1a2e] mb-2 leading-tight tracking-tight break-words max-w-full">
-                                {currentWord.word}
-                            </h3>
-                            
-                            {/* Phiên âm */}
-                            {currentWord.pronunciation && (
-                                <p className="text-base md:text-lg text-gray-500 font-medium font-serif bg-gray-100 px-4 py-1 rounded-full">
-                                    {currentWord.pronunciation}
-                                </p>
-                            )}
+                            <h3 className="text-3xl md:text-5xl font-extrabold text-[#1a1a2e] mb-2 leading-tight tracking-tight break-words max-w-full">{currentWord.word}</h3>
+                            {currentWord.pronunciation && <p className="text-base md:text-lg text-gray-500 font-medium font-serif bg-gray-100 px-4 py-1 rounded-full">{currentWord.pronunciation}</p>}
                         </div>
-                        
-                        {/* Footer hint */}
                         <div className="mt-auto flex flex-col items-center gap-2">
                              <div className="w-8 h-1.5 bg-gray-100 rounded-full"></div>
                              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Chạm để xem nghĩa</p>
@@ -597,25 +680,22 @@ const FlashcardView: React.FC<{
                     {/* BACK SIDE */}
                     <div style={backFaceStyle} className="bg-white flex flex-col items-center justify-center p-4 md:p-8 border-4 border-indigo-50">
                          <div className="flex flex-col items-center justify-center h-full text-center w-full">
-                            <h3 className="text-xl md:text-3xl font-bold text-gray-800 mb-4 leading-relaxed line-clamp-3">
-                                {currentWord.meaning}
-                            </h3>
-                            
+                            <h3 className="text-xl md:text-3xl font-bold text-gray-800 mb-4 leading-relaxed line-clamp-3">{currentWord.meaning}</h3>
                             <div className="w-full bg-gray-50 p-3 md:p-5 rounded-2xl text-left space-y-2 md:space-y-3 shadow-inner">
                                  <div className="flex items-center gap-3 text-sm text-gray-700 border-b border-gray-200 pb-2">
-                                     <span className="font-bold text-indigo-500 min-w-[60px]">Cấp độ:</span> 
+                                     <span className="font-bold text-indigo-500 min-w-[80px]">Cấp độ:</span> 
                                      <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold">{currentWord.level}</span>
                                  </div>
                                  {currentWord.synonyms && (
-                                     <div className="flex items-start gap-3 text-xs md:text-sm text-gray-700">
-                                         <span className="font-bold text-green-600 min-w-[60px]">ĐN:</span> 
-                                         <span className="italic line-clamp-1">{currentWord.synonyms}</span>
+                                     <div className="flex items-start gap-2 text-xs md:text-sm text-gray-700">
+                                         <span className="font-bold text-green-600 min-w-[80px]">Đồng nghĩa:</span> 
+                                         <span className="italic block whitespace-pre-wrap">{currentWord.synonyms}</span>
                                      </div>
                                  )}
                                  {currentWord.antonyms && (
-                                     <div className="flex items-start gap-3 text-xs md:text-sm text-gray-700">
-                                         <span className="font-bold text-red-500 min-w-[60px]">TN:</span> 
-                                         <span className="italic line-clamp-1">{currentWord.antonyms}</span>
+                                     <div className="flex items-start gap-2 text-xs md:text-sm text-gray-700">
+                                         <span className="font-bold text-red-500 min-w-[80px]">Trái nghĩa:</span> 
+                                         <span className="italic block whitespace-pre-wrap">{currentWord.antonyms}</span>
                                      </div>
                                  )}
                             </div>
@@ -624,45 +704,34 @@ const FlashcardView: React.FC<{
                 </div>
             </div>
 
-            {/* CONTROL BUTTONS */}
             <div className="grid grid-cols-2 gap-4 w-full px-2">
-                <button 
-                    onClick={() => handleGrade('learning')}
-                    className="flex flex-col items-center justify-center gap-1 py-3 md:py-4 rounded-2xl bg-[#1e1e2e] border border-red-500/30 hover:bg-red-500/10 text-red-400 font-bold transition-all active:scale-95 hover:border-red-500"
-                >
-                    <Meh size={24} />
-                    <span>Chưa nhớ</span>
+                <button onClick={() => handleGrade('learning')} className="flex flex-col items-center justify-center gap-1 py-3 md:py-4 rounded-2xl bg-[#1e1e2e] border border-red-500/30 hover:bg-red-500/10 text-red-400 font-bold transition-all active:scale-95 hover:border-red-500">
+                    <Meh size={24} /> <span>Chưa nhớ</span>
                 </button>
-                <button 
-                    onClick={() => handleGrade('memorized')}
-                    className="flex flex-col items-center justify-center gap-1 py-3 md:py-4 rounded-2xl bg-[#1e1e2e] border border-green-500/30 hover:bg-green-500/10 text-green-400 font-bold transition-all active:scale-95 shadow-lg shadow-green-900/20 hover:border-green-500"
-                >
-                    <Smile size={24} />
-                    <span>Đã nhớ</span>
+                <button onClick={() => handleGrade('memorized')} className="flex flex-col items-center justify-center gap-1 py-3 md:py-4 rounded-2xl bg-[#1e1e2e] border border-green-500/30 hover:bg-green-500/10 text-green-400 font-bold transition-all active:scale-95 shadow-lg shadow-green-900/20 hover:border-green-500">
+                    <Smile size={24} /> <span>Đã nhớ</span>
                 </button>
             </div>
         </div>
     );
 };
 
-// 2. QUIZ (Redesigned for Mobile)
+// 2. QUIZ
 const QuizView: React.FC<{ 
     vocabList: VocabItem[], 
     theme: ThemeConfig,
+    voice: SpeechSynthesisVoice | null,
     onSaveScore: (score: number) => void,
     onSaveTime: (seconds: number) => void
-}> = ({ vocabList, theme, onSaveScore, onSaveTime }) => {
+}> = ({ vocabList, theme, voice, onSaveScore, onSaveTime }) => {
     const [qIndex, setQIndex] = useState(0);
     const [score, setScore] = useState(0);
     const [options, setOptions] = useState<string[]>([]);
     const [selected, setSelected] = useState<string | null>(null);
     const [isFinished, setIsFinished] = useState(false);
 
-    // Timer
     useEffect(() => {
-        const interval = setInterval(() => {
-            onSaveTime(1);
-        }, 1000);
+        const interval = setInterval(() => { onSaveTime(1); }, 1000);
         return () => clearInterval(interval);
     }, [onSaveTime]);
 
@@ -675,7 +744,6 @@ const QuizView: React.FC<{
             .map(v => v.meaning)
             .sort(() => 0.5 - Math.random())
             .slice(0, 3);
-        
         const allOptions = [...otherMeanings, question.meaning].sort(() => 0.5 - Math.random());
         setOptions(allOptions);
         setSelected(null);
@@ -684,13 +752,10 @@ const QuizView: React.FC<{
     const handleAnswer = (ans: string) => {
         if (selected) return;
         setSelected(ans);
-        
         if (ans === question.meaning) {
             playSound('correct');
             setScore(s => s + 10);
-            setTimeout(() => {
-                nextQuestion();
-            }, 1000);
+            setTimeout(() => { nextQuestion(); }, 1000);
         } else {
             playSound('wrong');
         }
@@ -701,15 +766,17 @@ const QuizView: React.FC<{
             setQIndex(prev => prev + 1);
         } else {
             setIsFinished(true);
-            playSound('win'); // Thắng lớn
-            // Save final score
+            playSound('win'); 
             onSaveScore(score);
         }
     };
 
     const speak = () => {
+        window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(question.word);
         u.lang='en-US'; 
+        if(voice) u.voice = voice;
+        u.rate = 0.6;
         window.speechSynthesis.speak(u);
     }
 
@@ -728,14 +795,11 @@ const QuizView: React.FC<{
         );
     }
 
-    // Progress Bar Calculation
     const progressPercent = ((qIndex + 1) / vocabList.length) * 100;
 
     return (
         <div className="max-w-md mx-auto flex flex-col h-full">
-            {/* Top Bar: Progress & Score */}
             <div className="flex flex-col gap-2 mb-2">
-                 {/* Progress Bar */}
                  <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
                      <div className={`h-full bg-gradient-to-r ${theme.buttonGradient} transition-all duration-500`} style={{width: `${progressPercent}%`}}></div>
                  </div>
@@ -745,10 +809,8 @@ const QuizView: React.FC<{
                  </div>
             </div>
 
-            {/* Question Section - THAY ĐỔI: Giảm padding và size chữ */}
             <div className="flex-grow flex flex-col items-center justify-center py-2 mb-4 relative">
                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2 bg-white/5 px-3 py-1 rounded-full">Chọn nghĩa đúng</p>
-                 
                  <div className="text-center relative z-10">
                     <h3 className="text-2xl md:text-5xl font-black text-white mb-1 drop-shadow-xl">{question.word}</h3>
                     <div className="flex items-center justify-center gap-2 mt-1">
@@ -758,42 +820,26 @@ const QuizView: React.FC<{
                         </button>
                     </div>
                  </div>
-                 
-                 {/* Background decoration */}
                  <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/5 to-transparent blur-3xl -z-0"></div>
             </div>
 
-            {/* Options Grid - THAY ĐỔI: Giảm gap và padding nút */}
             <div className="flex flex-col gap-2 pb-12">
                 {options.map((opt, i) => {
                     let btnClass = "bg-[#1e1e2e] border-[#333] hover:bg-[#2a2a3e] active:scale-[0.98]";
                     let icon = null;
-
                     if (selected) {
                         if (opt === question.meaning) {
                             btnClass = "bg-green-500 border-green-400 text-white shadow-[0_0_15px_rgba(34,197,94,0.5)]";
                             icon = <Check size={18} className="text-white" />;
-                        }
-                        else if (opt === selected) {
+                        } else if (opt === selected) {
                             btnClass = "bg-red-500 border-red-400 text-white opacity-90";
                             icon = <X size={18} className="text-white" />;
-                        }
-                        else btnClass = "opacity-40 bg-black border-transparent";
+                        } else btnClass = "opacity-40 bg-black border-transparent";
                     } else {
                         btnClass += " text-gray-200 border-2";
                     }
-
                     return (
-                        <button 
-                            key={i}
-                            onClick={() => handleAnswer(opt)}
-                            disabled={!!selected}
-                            className={`
-                                relative p-3 md:p-5 rounded-xl text-left font-bold text-sm md:text-lg transition-all duration-200 
-                                flex items-center justify-between group shadow-lg
-                                ${btnClass}
-                            `}
-                        >
+                        <button key={i} onClick={() => handleAnswer(opt)} disabled={!!selected} className={`relative p-3 md:p-5 rounded-xl text-left font-bold text-sm md:text-lg transition-all duration-200 flex items-center justify-between group shadow-lg ${btnClass}`}>
                             <span className="line-clamp-2">{opt}</span>
                             {icon}
                         </button>
@@ -810,18 +856,19 @@ const QuizView: React.FC<{
     );
 };
 
-// 3. LISTENING (Updated)
-const ListeningView: React.FC<{ vocabList: VocabItem[], theme: ThemeConfig }> = ({ vocabList, theme }) => {
+// 3. LISTENING
+const ListeningView: React.FC<{ vocabList: VocabItem[], theme: ThemeConfig, voice: SpeechSynthesisVoice | null }> = ({ vocabList, theme, voice }) => {
     const [index, setIndex] = useState(0);
     const [input, setInput] = useState('');
     const [status, setStatus] = useState<'idle' | 'correct' | 'wrong'>('idle');
-
     const currentWord = vocabList[index];
 
     const playAudio = () => {
+        window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(currentWord.word);
         u.lang = 'en-US';
-        u.rate = 0.8;
+        u.rate = 0.6;
+        if (voice) u.voice = voice;
         window.speechSynthesis.speak(u);
     };
 
@@ -830,7 +877,7 @@ const ListeningView: React.FC<{ vocabList: VocabItem[], theme: ThemeConfig }> = 
         setStatus('idle');
         const timer = setTimeout(playAudio, 500);
         return () => clearTimeout(timer);
-    }, [index]);
+    }, [index, voice]);
 
     const checkAnswer = (e: React.FormEvent) => {
         e.preventDefault();
