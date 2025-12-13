@@ -1,4 +1,5 @@
 
+
 export interface Message {
   id: string;
   author: string;
@@ -85,6 +86,7 @@ export interface VocabItem {
   synonyms: string;      // emerge, show
   antonyms: string;      // disappear
   mastered?: boolean;    // Local state for progress
+  example?: string;      // Example sentence
 }
 
 export interface Topic {

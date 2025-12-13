@@ -29,6 +29,7 @@ const db = firebase.firestore();
 // --- XỬ LÝ AUTHENTICATION AN TOÀN ---
 // Hàm tạo Auth giả để App không bị Crash khi chạy trong môi trường bị hạn chế (Preview/Iframe)
 const createMockAuth = () => {
+  console.warn("Using Mock Auth due to environment restrictions.");
   return {
     onAuthStateChanged: (callback: any) => {
         // Luôn trả về Guest (null) ngay lập tức
@@ -36,11 +37,11 @@ const createMockAuth = () => {
         return () => {}; 
     },
     signInWithPopup: async () => { 
-        alert("Tính năng đăng nhập Google không khả dụng trong môi trường xem trước này (Do chính sách chặn Cookie của trình duyệt).\nVui lòng chạy trên localhost hoặc deploy lên tên miền thực tế để đăng nhập.");
+        console.error("Auth not supported in this environment");
         throw new Error("Auth not supported"); 
     },
     signInWithRedirect: async () => { 
-        alert("Tính năng đăng nhập không khả dụng trong môi trường này.");
+        console.error("Auth not supported in this environment");
         throw new Error("Auth not supported"); 
     },
     getRedirectResult: async () => ({ user: null }),
@@ -63,7 +64,7 @@ if (isSupportedProtocol) {
     googleProvider = new firebase.auth.GoogleAuthProvider();
   } catch (error) {
     // Nếu khởi tạo thất bại ngay lập tức, dùng Mock
-    console.warn("Auth init failed, falling back to mock.");
+    console.warn("Auth init failed, falling back to mock.", error);
     auth = createMockAuth();
     googleProvider = {} as any;
   }

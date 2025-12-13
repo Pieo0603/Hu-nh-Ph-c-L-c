@@ -5,31 +5,28 @@ import MessageForm from './components/MessageForm';
 import MessageList from './components/MessageList';
 import MusicPlayer from './components/MusicPlayer';
 import AdminDashboard from './components/AdminDashboard';
-import StudyTracker from './components/StudyTracker'; // This is now conceptually the "Timer"
-import EnglishHub from './components/EnglishHub'; // New English Learning Component
+import StudyTracker from './components/StudyTracker';
+import EnglishHub from './components/EnglishHub';
 import MusicTab from './components/MusicTab';
-import AiAssistant from './components/AiAssistant'; // IMPORT AI ASSISTANT
-import UserProfileModal from './components/UserProfileModal'; // NEW COMPONENT
+import AiAssistant from './components/AiAssistant';
+import UserProfileModal from './components/UserProfileModal';
 import { Message, ThemeConfig, AppUser } from './types';
-import { Settings, Home, Palette, Music, Timer, BrainCircuit, LogOut, LogIn, User as UserIcon, X, ArrowRight, Edit3, Camera, BookOpen, Calculator, ScrollText, PenTool, Link as LinkIcon, GraduationCap, FileText, RotateCw } from 'lucide-react';
-
-// FIX: Import firebase from 'firebase/compat/app' for Types
+import { Settings, Home, Palette, Music, Timer, BrainCircuit, LogOut, LogIn, User as UserIcon, X, ArrowRight, Edit3, Camera, Link as LinkIcon, GraduationCap, FileText, RotateCw, PenTool, BookOpen } from 'lucide-react';
 import firebase from 'firebase/compat/app';
-// FIX: Import instances from local service (removed 'firebase' export usage to avoid conflict)
 import { db, auth, googleProvider } from './services/firebase';
 
-// Use a fixed date for THPT 2026 (Approximately late June)
+// Use a fixed date for THPT 2026
 const EXAM_DATE = new Date('2026-06-27T07:30:00');
 
 // Theme Definitions
 const THEMES: Record<string, ThemeConfig> = {
   blue: {
     id: 'blue',
-    hex: '#3b82f6', // blue-500
+    hex: '#3b82f6',
     text: 'text-cyan-400',
     textDim: 'text-cyan-400/50',
     border: 'border-cyan-500',
-    shadow: 'shadow-cyan-500/50', // Tăng độ đậm shadow
+    shadow: 'shadow-cyan-500/50',
     gradientTitle: 'from-cyan-400 via-blue-400 to-indigo-400',
     buttonGradient: 'from-cyan-500 to-blue-600',
     icon: 'text-cyan-400',
@@ -37,7 +34,7 @@ const THEMES: Record<string, ThemeConfig> = {
   },
   green: {
     id: 'green',
-    hex: '#10b981', // emerald-500
+    hex: '#10b981',
     text: 'text-emerald-400',
     textDim: 'text-emerald-400/50',
     border: 'border-emerald-500',
@@ -47,21 +44,9 @@ const THEMES: Record<string, ThemeConfig> = {
     icon: 'text-emerald-400',
     inputFocus: 'focus:border-emerald-500 focus:ring-emerald-500'
   },
-  gray: {
-    id: 'gray',
-    hex: '#94a3b8', // slate-400
-    text: 'text-gray-300',
-    textDim: 'text-gray-400/50',
-    border: 'border-gray-500',
-    shadow: 'shadow-white/20',
-    gradientTitle: 'from-gray-200 via-slate-400 to-zinc-400',
-    buttonGradient: 'from-gray-500 to-slate-600',
-    icon: 'text-gray-300',
-    inputFocus: 'focus:border-gray-500 focus:ring-gray-500'
-  },
   pink: {
     id: 'pink',
-    hex: '#ec4899', // pink-500
+    hex: '#ec4899',
     text: 'text-pink-400',
     textDim: 'text-pink-400/50',
     border: 'border-pink-500',
@@ -73,7 +58,7 @@ const THEMES: Record<string, ThemeConfig> = {
   },
   gold: {
     id: 'gold',
-    hex: '#f59e0b', // amber-500
+    hex: '#f59e0b',
     text: 'text-amber-400',
     textDim: 'text-amber-400/50',
     border: 'border-amber-500',
@@ -97,9 +82,9 @@ const App: React.FC = () => {
   // Learning Tab Sub-State
   const [learningSubject, setLearningSubject] = useState<'menu' | 'english'>('menu');
 
-  // Auth State - Now properly typed with firebase.User
+  // Auth State
   const [firebaseUser, setFirebaseUser] = useState<firebase.User | null>(null);
-  const [userExtras, setUserExtras] = useState<Partial<AppUser>>({}); // Store bio, class, etc.
+  const [userExtras, setUserExtras] = useState<Partial<AppUser>>({});
   const [guestUser, setGuestUser] = useState<AppUser | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [guestNameInput, setGuestNameInput] = useState('');
@@ -107,13 +92,12 @@ const App: React.FC = () => {
   // Edit Profile State
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [editName, setEditName] = useState('');
-  const [editAvatarSeed, setEditAvatarSeed] = useState(''); // For DiceBear
-  const [editCustomAvatar, setEditCustomAvatar] = useState<string | null>(null); // For uploaded image
+  const [editAvatarSeed, setEditAvatarSeed] = useState('');
+  const [editCustomAvatar, setEditCustomAvatar] = useState<string | null>(null);
   const [editBio, setEditBio] = useState('');
   const [editClass, setEditClass] = useState('');
   const [editSocial, setEditSocial] = useState('');
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // View Other User Profile State
   const [viewingUserId, setViewingUserId] = useState<string | null>(null);
@@ -124,17 +108,16 @@ const App: React.FC = () => {
   // Scroll State for Floating Button
   const [showScrollButton, setShowScrollButton] = useState(false);
 
-  // Tính toán user cuối cùng (Ưu tiên Firebase user, nếu không có thì dùng Guest)
   const currentUser: AppUser | null = firebaseUser 
     ? { 
         uid: firebaseUser.uid, 
         displayName: firebaseUser.displayName, 
-        photoURL: userExtras.photoURL || firebaseUser.photoURL, // Prefer custom avatar from Firestore
+        photoURL: userExtras.photoURL || firebaseUser.photoURL,
         isAnonymous: false,
         bio: userExtras.bio,
         className: userExtras.className,
         socialLink: userExtras.socialLink,
-        isPremium: userExtras.isPremium // Added isPremium
+        isPremium: userExtras.isPremium
       }
     : guestUser;
 
@@ -150,9 +133,7 @@ const App: React.FC = () => {
             })) as Message[];
             setMessages(msgs);
         }, (error) => {
-            if (error.code !== 'permission-denied') {
-                 console.error("Lỗi khi đọc dữ liệu Firebase:", error);
-            }
+             console.error("Lỗi khi đọc dữ liệu Firebase:", error);
         });
         return () => unsubscribe();
     } catch (e) {
@@ -163,7 +144,6 @@ const App: React.FC = () => {
   // Scroll listener
   useEffect(() => {
     const handleScroll = () => {
-      // Show button if scrolled down more than 500px
       if (window.scrollY > 500 && activeTab === 'home') {
         setShowScrollButton(true);
       } else {
@@ -174,23 +154,20 @@ const App: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [activeTab]);
 
-  // Listen for Auth Changes (Firebase)
+  // Listen for Auth Changes
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
        setFirebaseUser(user);
        if (user) {
          setGuestUser(null);
          setShowLoginModal(false);
-         
-         // Fetch extra profile data from Firestore
          try {
-             // Use onSnapshot for realtime updates of user profile (e.g. when unlocking premium)
              const userUnsubscribe = db.collection('users').doc(user.uid).onSnapshot(doc => {
                  if (doc.exists) {
                      setUserExtras(doc.data() as Partial<AppUser>);
                  }
              });
-             return () => userUnsubscribe(); // Cleanup inner subscription when auth changes
+             return () => userUnsubscribe();
          } catch (e) {
              console.error("Error fetching user profile:", e);
          }
@@ -206,12 +183,11 @@ const App: React.FC = () => {
           await auth.signInWithPopup(googleProvider);
       } catch (e: any) {
           console.error("Popup login failed", e);
-          if (e.message === "Auth not supported") return;
-          try {
-              await auth.signInWithRedirect(googleProvider);
-          } catch (e2: any) {
-              alert(`Đăng nhập thất bại. Vui lòng thử lại hoặc dùng chế độ Khách.`);
+          if (e.message === "Auth not supported") {
+             alert("Trình duyệt này chặn đăng nhập Google (Cookies). Vui lòng dùng chế độ 'Dùng tên tạm' bên dưới.");
+             return;
           }
+          alert(`Đăng nhập thất bại. Vui lòng dùng chế độ Khách.`);
       }
   };
 
@@ -225,7 +201,7 @@ const App: React.FC = () => {
           isAnonymous: true,
           bio: "Khách ghé thăm",
           className: "Tự do",
-          isPremium: false // Guests start without premium
+          isPremium: false
       };
       setGuestUser(newGuest);
       setShowLoginModal(false);
@@ -240,7 +216,6 @@ const App: React.FC = () => {
       setUserExtras({});
   };
 
-  // --- LOGIC XỬ LÝ ẢNH ---
   const processAvatarImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -250,7 +225,6 @@ const App: React.FC = () => {
         img.src = event.target?.result as string;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          // Resize nhỏ xuống để lưu Firestore (Max 300x300)
           const MAX_SIZE = 300; 
           let width = img.width;
           let height = img.height;
@@ -271,8 +245,6 @@ const App: React.FC = () => {
           canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx?.drawImage(img, 0, 0, width, height);
-          
-          // Nén chất lượng 0.6
           const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
           resolve(compressedDataUrl);
         };
@@ -292,7 +264,7 @@ const App: React.FC = () => {
           try {
               const base64 = await processAvatarImage(file);
               setEditCustomAvatar(base64);
-              setEditAvatarSeed(''); // Clear seed if custom image used
+              setEditAvatarSeed('');
           } catch (error) {
               console.error(error);
               alert("Lỗi xử lý ảnh.");
@@ -300,7 +272,6 @@ const App: React.FC = () => {
       }
   };
 
-  // --- LOGIC CẬP NHẬT PROFILE ---
   const openEditProfile = () => {
     if (currentUser) {
         setEditName(currentUser.displayName || '');
@@ -308,14 +279,12 @@ const App: React.FC = () => {
         setEditClass(currentUser.className || '');
         setEditSocial(currentUser.socialLink || '');
         
-        // Check if current photo is a DiceBear seed or custom base64
         const currentUrl = currentUser.photoURL || '';
         if (currentUrl.includes('api.dicebear.com')) {
             const seedMatch = currentUrl.match(/seed=([^&]*)/);
             setEditAvatarSeed(seedMatch ? seedMatch[1] : (currentUser.displayName || 'user'));
             setEditCustomAvatar(null);
         } else {
-            // Assume it's a custom URL or Base64
             setEditCustomAvatar(currentUrl);
             setEditAvatarSeed('');
         }
@@ -331,20 +300,17 @@ const App: React.FC = () => {
       }
       setIsUpdatingProfile(true);
       try {
-          // Determine final photo URL
           let finalPhotoURL = editCustomAvatar;
           if (!finalPhotoURL && editAvatarSeed) {
               finalPhotoURL = `https://api.dicebear.com/7.x/notionists/svg?seed=${editAvatarSeed}`;
           }
           if (!finalPhotoURL) finalPhotoURL = firebaseUser.photoURL || "";
 
-          // 1. Update Core Auth Profile
           await firebaseUser.updateProfile({
               displayName: editName,
               photoURL: finalPhotoURL
           });
 
-          // 2. Update Extended Firestore Profile
           const extendedData = {
               displayName: editName,
               photoURL: finalPhotoURL,
@@ -352,12 +318,10 @@ const App: React.FC = () => {
               className: editClass,
               socialLink: editSocial,
               updatedAt: Date.now(),
-              isPremium: userExtras.isPremium || false // Preserve premium status
+              isPremium: userExtras.isPremium || false
           };
           
           await db.collection('users').doc(firebaseUser.uid).set(extendedData, { merge: true });
-
-          // 3. Update Local State
           setUserExtras(extendedData);
           setFirebaseUser({ ...firebaseUser, displayName: editName, photoURL: finalPhotoURL } as firebase.User);
           
@@ -374,7 +338,7 @@ const App: React.FC = () => {
   const handleAddMessage = async (newMsg: Omit<Message, 'id' | 'timestamp'>) => {
       await db.collection("wishes").add({
         ...newMsg,
-        userId: currentUser?.uid, // Save userId to link to profile
+        userId: currentUser?.uid,
         timestamp: Date.now()
       });
   };
@@ -408,17 +372,8 @@ const App: React.FC = () => {
       setViewingUserId(userId);
   };
 
-  // Callback to update user data immediately after unlocking
-  const handleUserUnlocked = (isPremium: boolean) => {
-      if (firebaseUser) {
-          setUserExtras(prev => ({ ...prev, isPremium }));
-      } else if (guestUser) {
-          setGuestUser(prev => prev ? ({ ...prev, isPremium }) : null);
-      }
-  };
-
   return (
-    <div className="min-h-screen text-white relative flex flex-col items-center">
+    <div className="min-h-screen text-white relative flex flex-col items-center selection:bg-pink-500/30">
       <StarBackground />
       
       {/* HEADER / NAVIGATION BAR */}
@@ -720,7 +675,7 @@ const App: React.FC = () => {
         
         {/* TAB 1: HOME */}
         {activeTab === 'home' && (
-          <div className="animate-in fade-in duration-500 pb-24">
+          <div className="animate-in fade-in duration-500 pb-24 flex flex-col min-h-screen">
             <header className="mt-28 md:mt-40 text-center px-4 z-10">
                 <h1 className={`text-2xl md:text-5xl font-extrabold uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r ${currentTheme.gradientTitle} mb-3 drop-shadow-lg transition-all duration-500 leading-normal py-4`}>
                 ĐẾM NGƯỢC ĐẾN NGÀY THI <br className="md:hidden" /> THPT QUỐC GIA 2026
@@ -730,7 +685,7 @@ const App: React.FC = () => {
                 </p>
             </header>
 
-            <main className="w-full max-w-7xl px-4 z-10 flex flex-col items-center mx-auto">
+            <main className="w-full max-w-7xl px-4 z-10 flex flex-col items-center mx-auto flex-grow">
                 <Countdown targetDate={EXAM_DATE} theme={currentTheme} />
                 <MessageForm onAddMessage={handleAddMessage} theme={currentTheme} />
                 <MessageList 
@@ -740,8 +695,20 @@ const App: React.FC = () => {
                 />
             </main>
             
-            <footer className="w-full text-center py-6 text-[10px] text-gray-600 z-10">
-              <p>Made with  Huỳnh Phước Lộc❤️ for 2k8</p>
+            {/* FOOTER ĐƯỢC GIỮ LẠI THEO YÊU CẦU */}
+            <footer className="w-full text-center py-8 z-10 flex flex-col items-center gap-3 mt-auto">
+              <p className="text-[10px] text-gray-600">Made with ❤️ by Huỳnh Phước Lộc for 2k8</p>
+              <div className="flex items-center gap-4 text-xs font-medium bg-black/20 px-4 py-2 rounded-full border border-white/5 backdrop-blur-sm">
+                  <a href="https://www.facebook.com/HplIt6030" target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg>
+                      Huỳnh Phước Lộc
+                  </a>
+                  <div className="w-[1px] h-3 bg-gray-700"></div>
+                  <span className="text-gray-400 flex items-center gap-1.5 cursor-pointer hover:text-white transition-colors" onClick={() => { navigator.clipboard.writeText('0795545909'); alert('Đã sao chép số Zalo!'); }} title="Nhấn để sao chép">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                      Zalo: 0795545909
+                  </span>
+              </div>
            </footer>
           </div>
         )}
@@ -749,7 +716,6 @@ const App: React.FC = () => {
         {/* TAB 2: TIMER (Study Tracker) */}
         {activeTab === 'timer' && (
            <div className="animate-in fade-in slide-in-from-right-4 duration-500 pt-20 pb-24">
-               {/* Pass current user (Google or Guest) to StudyTracker */}
                <StudyTracker 
                     theme={currentTheme} 
                     user={currentUser} 
@@ -762,7 +728,6 @@ const App: React.FC = () => {
         {activeTab === 'learning' && (
            <div className="w-full max-w-6xl mx-auto pt-24 px-4 pb-24 animate-in fade-in duration-500">
                {learningSubject === 'menu' ? (
-                   // MENU CHỌN MÔN HỌC
                    <div className="max-w-4xl mx-auto">
                        <div className="text-center mb-12">
                            <h2 className={`text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r ${currentTheme.gradientTitle} uppercase tracking-widest mb-3`}>
@@ -772,7 +737,6 @@ const App: React.FC = () => {
                        </div>
                        
                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                           {/* MÔN 1: TIẾNG ANH (ACTIVE) */}
                            <div 
                               onClick={() => setLearningSubject('english')}
                               className="group relative cursor-pointer"
@@ -791,48 +755,12 @@ const App: React.FC = () => {
                                    </span>
                                </div>
                            </div>
-
-                           {/* MÔN 2: TOÁN (SẮP RA MẮT) */}
-                           <div className="group relative opacity-70 hover:opacity-100 transition-opacity">
-                               <div className="relative h-full bg-[#1e1e2e] rounded-2xl p-6 md:p-8 flex flex-col items-center text-center border border-white/5 border-dashed">
-                                   <div className="absolute top-4 right-4 px-2 py-1 bg-gray-800 rounded text-[10px] font-bold text-gray-400 uppercase tracking-wide">Sắp ra mắt</div>
-                                   <div className="w-16 h-16 md:w-20 md:h-20 bg-gray-700/20 rounded-full flex items-center justify-center mb-6">
-                                       <Calculator size={32} className="text-gray-500" />
-                                   </div>
-                                   <h3 className="text-xl font-bold text-gray-300 mb-2">Toán Học</h3>
-                                   <p className="text-sm text-gray-500 mb-6 flex-grow">
-                                       Công thức nhanh, Luyện đề trắc nghiệm & Giải chi tiết.
-                                   </p>
-                                   <span className="inline-flex items-center gap-2 text-xs font-bold text-gray-600 bg-gray-800 px-4 py-2 rounded-full cursor-not-allowed">
-                                       Đang cập nhật
-                                   </span>
-                               </div>
-                           </div>
-
-                           {/* MÔN 3: VĂN (SẮP RA MẮT) */}
-                           <div className="group relative opacity-70 hover:opacity-100 transition-opacity">
-                               <div className="relative h-full bg-[#1e1e2e] rounded-2xl p-6 md:p-8 flex flex-col items-center text-center border border-white/5 border-dashed">
-                                   <div className="absolute top-4 right-4 px-2 py-1 bg-gray-800 rounded text-[10px] font-bold text-gray-400 uppercase tracking-wide">Sắp ra mắt</div>
-                                   <div className="w-16 h-16 md:w-20 md:h-20 bg-gray-700/20 rounded-full flex items-center justify-center mb-6">
-                                       <ScrollText size={32} className="text-gray-500" />
-                                   </div>
-                                   <h3 className="text-xl font-bold text-gray-300 mb-2">Ngữ Văn</h3>
-                                   <p className="text-sm text-gray-500 mb-6 flex-grow">
-                                       Sơ đồ tư duy, Dẫn chứng nghị luận & Văn mẫu chọn lọc.
-                                   </p>
-                                   <span className="inline-flex items-center gap-2 text-xs font-bold text-gray-600 bg-gray-800 px-4 py-2 rounded-full cursor-not-allowed">
-                                       Đang cập nhật
-                                   </span>
-                               </div>
-                           </div>
                        </div>
                    </div>
                ) : (
-                   // GIAO DIỆN HỌC TIẾNG ANH
                    <EnglishHub 
                         theme={currentTheme} 
                         user={currentUser} 
-                        onBack={() => setLearningSubject('menu')} 
                    />
                )}
            </div>
