@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Message, ThemeConfig, VocabItem, StudyLog } from '../types';
-import { X, Trash2, CheckSquare, Square, Search, Download, Filter, LogOut, Wrench, Lock, Lightbulb, Upload, FileText, Database, PlusCircle, Wand2, Info, BookOpen, RefreshCw, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { X, Trash2, CheckSquare, Square, Search, Download, Filter, LogOut, Wrench, Lock, Lightbulb, Upload, FileText, Database, PlusCircle, Wand2, Info, BookOpen, RefreshCw, Clock, CheckCircle, AlertCircle, Key, RefreshCcw } from 'lucide-react';
 import { db } from '../services/firebase';
 
 interface AdminDashboardProps {
@@ -10,7 +10,7 @@ interface AdminDashboardProps {
   theme: ThemeConfig;
 }
 
-type AdminTab = 'messages' | 'upload' | 'vocab' | 'study_logs';
+type AdminTab = 'messages' | 'upload' | 'vocab' | 'study_logs' | 'settings';
 
 // DỮ LIỆU MẪU (Giữ nguyên cấu trúc, chỉ sửa nội dung hiển thị nếu cần)
 const SAMPLE_VOCAB = [
@@ -35,6 +35,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
   const [studyLogs, setStudyLogs] = useState<StudyLog[]>([]);
   const [selectedLogIds, setSelectedLogIds] = useState<Set<string>>(new Set());
   const [logsLoading, setLogsLoading] = useState(false);
+
+  // Trạng thái Settings (Mã truy cập)
+  const [accessCode, setAccessCode] = useState('');
+  const [loadingCode, setLoadingCode] = useState(false);
 
   // Trạng thái Upload
   const [rawText, setRawText] = useState('');
@@ -83,9 +87,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
       }
   };
 
+  const fetchAccessCode = async () => {
+      setLoadingCode(true);
+      try {
+          const doc = await db.collection("settings").doc("global_config").get();
+          if (doc.exists) {
+              setAccessCode(doc.data()?.accessCode || "Chưa thiết lập");
+          } else {
+              setAccessCode("Chưa thiết lập");
+          }
+      } catch (error) {
+          console.error("Lỗi tải mã:", error);
+      } finally {
+          setLoadingCode(false);
+      }
+  };
+
   useEffect(() => {
     if (activeTab === 'vocab') fetchVocab();
     if (activeTab === 'study_logs') fetchStudyLogs();
+    if (activeTab === 'settings') fetchAccessCode();
   }, [activeTab, vocabFilterTopic]);
 
   // --- LỌC VÀ SẮP XẾP TIN NHẮN ---
@@ -331,6 +352,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
       }
   };
 
+  // --- LOGIC GENERATE CODE ---
+  const generateNewAccessCode = async () => {
+      // Logic: Random 6 ký tự viết hoa
+      const newCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      
+      if (!window.confirm(`Bạn có chắc muốn tạo mã mới? Mã cũ sẽ không còn hiệu lực.\nMã mới: ${newCode}`)) return;
+      
+      setLoadingCode(true);
+      try {
+          // Dùng set với merge: true để đảm bảo tạo document nếu chưa có
+          await db.collection("settings").doc("global_config").set({ accessCode: newCode }, { merge: true });
+          setAccessCode(newCode);
+          alert(`Đã cập nhật mã truy cập mới: ${newCode}`);
+      } catch (e) {
+          console.error(e);
+          alert("Lỗi khi lưu mã. Kiểm tra lại kết nối hoặc quyền hạn.");
+      } finally {
+          setLoadingCode(false);
+      }
+  };
+
   return (
     <div className="fixed inset-0 z-[100] bg-[#1a1a2e] text-white overflow-hidden flex flex-col font-sans">
       
@@ -376,8 +418,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
             <div className="flex bg-black/30 rounded-lg p-1 overflow-x-auto no-scrollbar">
                 <button onClick={() => setActiveTab('messages')} className={`px-3 md:px-4 py-1.5 rounded-md text-xs md:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'messages' ? 'bg-pink-600 text-white' : 'text-gray-400 hover:text-white'}`}>Lời chúc</button>
                 <button onClick={() => setActiveTab('vocab')} className={`px-3 md:px-4 py-1.5 rounded-md text-xs md:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'vocab' ? 'bg-pink-600 text-white' : 'text-gray-400 hover:text-white'}`}>Từ vựng</button>
-                <button onClick={() => setActiveTab('study_logs')} className={`px-3 md:px-4 py-1.5 rounded-md text-xs md:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'study_logs' ? 'bg-pink-600 text-white' : 'text-gray-400 hover:text-white'}`}>Nhật ký học</button>
+                <button onClick={() => setActiveTab('study_logs')} className={`px-3 md:px-4 py-1.5 rounded-md text-xs md:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'study_logs' ? 'bg-pink-600 text-white' : 'text-gray-400 hover:text-white'}`}>Nhật ký</button>
                 <button onClick={() => setActiveTab('upload')} className={`px-3 md:px-4 py-1.5 rounded-md text-xs md:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'upload' ? 'bg-pink-600 text-white' : 'text-gray-400 hover:text-white'}`}>Nhập Excel</button>
+                <button onClick={() => setActiveTab('settings')} className={`px-3 md:px-4 py-1.5 rounded-md text-xs md:text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'settings' ? 'bg-pink-600 text-white' : 'text-gray-400 hover:text-white'}`}>Cài đặt</button>
             </div>
         </div>
         <button onClick={onClose} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg flex items-center gap-2 text-sm font-semibold transition-colors whitespace-nowrap ml-2"><LogOut size={16} /> <span className="hidden sm:inline">Thoát</span></button>
@@ -385,8 +428,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
 
       {/* CONTENT: UPLOAD TAB */}
       {activeTab === 'upload' && (
-          <div className="p-4 md:p-8 max-w-5xl mx-auto w-full overflow-y-auto">
-              <div className="bg-[#1f2937] p-6 rounded-2xl border border-gray-700 shadow-xl">
+          <div className="flex-grow overflow-y-auto p-4 md:p-8 custom-scrollbar">
+              <div className="max-w-5xl mx-auto bg-[#1f2937] p-6 rounded-2xl border border-gray-700 shadow-xl">
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                       <div>
                         <h3 className="text-xl font-bold mb-2 flex items-center gap-2 text-green-400"><Database size={20} /> Nhập dữ liệu từ Excel</h3>
@@ -456,6 +499,44 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessa
           </div>
       )}
 
+      {/* CONTENT: SETTINGS TAB (Mã Truy Cập) */}
+      {activeTab === 'settings' && (
+          // Thêm flex-grow và overflow-y-auto để đảm bảo nội dung cuộn được trên màn hình nhỏ
+          <div className="flex-grow overflow-y-auto p-4 md:p-8 custom-scrollbar">
+              <div className="max-w-2xl mx-auto bg-[#1f2937] p-8 rounded-2xl border border-gray-700 shadow-xl flex flex-col items-center text-center">
+                  <div className="w-20 h-20 bg-blue-500/20 rounded-full flex items-center justify-center mb-6">
+                      <Key size={40} className="text-blue-400" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-2">Quản lý Mã Truy Cập</h3>
+                  <p className="text-gray-400 text-sm mb-8 max-w-sm">
+                      Mã này được sử dụng để mở khóa các bài học từ Unit 3 trở đi. Hãy chia sẻ mã này cho người dùng mà bạn muốn cấp quyền.
+                  </p>
+
+                  <div className="bg-black/30 p-6 rounded-xl border border-white/10 w-full mb-6">
+                      <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-2">Mã hiện tại</p>
+                      {loadingCode ? (
+                          <div className="flex justify-center"><div className="animate-spin h-6 w-6 border-2 border-blue-500 rounded-full border-t-transparent"></div></div>
+                      ) : (
+                          <div className="text-4xl font-mono font-bold text-yellow-400 tracking-widest select-all break-all">
+                              {accessCode}
+                          </div>
+                      )}
+                  </div>
+
+                  <button 
+                    onClick={generateNewAccessCode}
+                    disabled={loadingCode}
+                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-white transition-all shadow-lg hover:shadow-blue-500/30 active:scale-95"
+                  >
+                      <RefreshCcw size={18} className={loadingCode ? "animate-spin" : ""} />
+                      Tạo mã ngẫu nhiên mới
+                  </button>
+                  <p className="text-xs text-gray-500 mt-4 italic">Lưu ý: Chỉ mình Admin mới thấy và đổi được mã này.</p>
+              </div>
+          </div>
+      )}
+
+      {/* ... (Các tab khác vocab, study_logs, messages giữ nguyên logic render như cũ) */}
       {/* CONTENT: VOCABULARY MANAGEMENT TAB */}
       {activeTab === 'vocab' && (
           <div className="flex flex-col h-full">

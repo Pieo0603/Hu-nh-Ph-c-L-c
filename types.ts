@@ -47,6 +47,7 @@ export interface AppUser {
     bio?: string;          // Giới thiệu bản thân
     className?: string;    // Tên lớp (VD: 12A1)
     socialLink?: string;   // Link Facebook/Insta
+    isPremium?: boolean;   // Đã mở khóa Unit 3+ hay chưa
 }
 
 export interface StudyLog {

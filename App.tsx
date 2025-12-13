@@ -133,7 +133,8 @@ const App: React.FC = () => {
         isAnonymous: false,
         bio: userExtras.bio,
         className: userExtras.className,
-        socialLink: userExtras.socialLink
+        socialLink: userExtras.socialLink,
+        isPremium: userExtras.isPremium // Added isPremium
       }
     : guestUser;
 
@@ -183,10 +184,13 @@ const App: React.FC = () => {
          
          // Fetch extra profile data from Firestore
          try {
-             const userDoc = await db.collection('users').doc(user.uid).get();
-             if (userDoc.exists) {
-                 setUserExtras(userDoc.data() as Partial<AppUser>);
-             }
+             // Use onSnapshot for realtime updates of user profile (e.g. when unlocking premium)
+             const userUnsubscribe = db.collection('users').doc(user.uid).onSnapshot(doc => {
+                 if (doc.exists) {
+                     setUserExtras(doc.data() as Partial<AppUser>);
+                 }
+             });
+             return () => userUnsubscribe(); // Cleanup inner subscription when auth changes
          } catch (e) {
              console.error("Error fetching user profile:", e);
          }
@@ -220,7 +224,8 @@ const App: React.FC = () => {
           photoURL: `https://api.dicebear.com/7.x/notionists/svg?seed=${guestNameInput}`,
           isAnonymous: true,
           bio: "Khách ghé thăm",
-          className: "Tự do"
+          className: "Tự do",
+          isPremium: false // Guests start without premium
       };
       setGuestUser(newGuest);
       setShowLoginModal(false);
@@ -346,7 +351,8 @@ const App: React.FC = () => {
               bio: editBio,
               className: editClass,
               socialLink: editSocial,
-              updatedAt: Date.now()
+              updatedAt: Date.now(),
+              isPremium: userExtras.isPremium || false // Preserve premium status
           };
           
           await db.collection('users').doc(firebaseUser.uid).set(extendedData, { merge: true });
@@ -400,6 +406,15 @@ const App: React.FC = () => {
 
   const handleViewProfile = (userId: string) => {
       setViewingUserId(userId);
+  };
+
+  // Callback to update user data immediately after unlocking
+  const handleUserUnlocked = (isPremium: boolean) => {
+      if (firebaseUser) {
+          setUserExtras(prev => ({ ...prev, isPremium }));
+      } else if (guestUser) {
+          setGuestUser(prev => prev ? ({ ...prev, isPremium }) : null);
+      }
   };
 
   return (
