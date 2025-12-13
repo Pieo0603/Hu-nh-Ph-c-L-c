@@ -1,29 +1,42 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../services/firebase';
 import { StudyLog, ThemeConfig, LeaderboardEntry, AppUser } from '../types';
-import { Play, Pause, Square, CheckCircle, Clock, BookOpen, LogOut, LayoutList, Trophy, User as UserIcon, AlertCircle, ArrowRight, History, Lock, Trash2, GraduationCap, Link as LinkIcon, Quote } from 'lucide-react';
+import { Play, Pause, Square, CheckCircle, Clock, BookOpen, LogOut, LayoutList, Trophy, User as UserIcon, AlertCircle, ArrowRight, History, Lock, Trash2, GraduationCap, Link as LinkIcon, Quote, Flame, Palette, Settings2, X } from 'lucide-react';
 
 interface StudyTrackerProps {
   theme: ThemeConfig;
-  user: AppUser | null; // Receive user from App
+  user: AppUser | null;
   onViewProfile?: (userId: string) => void;
 }
 
-const SUBJECTS = [
-  "Toán", "Văn", "Anh", "Lý", "Hóa", "Sinh", "Sử", "Địa", "KTPL", "CNTT"
-];
+// Cấu hình môn học với Icon và Màu sắc đặc trưng
+const SUBJECT_CONFIG: Record<string, { icon: string, color: string }> = {
+  "Toán": { icon: "∑", color: "text-blue-500" },
+  "Lý": { icon: "Ω", color: "text-purple-500" },
+  "Hóa": { icon: "⚗️", color: "text-green-500" },
+  "Sinh": { icon: "🧬", color: "text-emerald-500" },
+  "Văn": { icon: "✒️", color: "text-orange-500" },
+  "Anh": { icon: "ABC", color: "text-pink-500" },
+  "Sử": { icon: "⚔️", color: "text-yellow-600" },
+  "Địa": { icon: "🌍", color: "text-cyan-500" },
+  "KTPL": { icon: "⚖️", color: "text-indigo-400" },
+  "CNTT": { icon: "</>", color: "text-gray-400" }
+};
 
-const MOTIVATIONAL_QUOTES = [
+const SUBJECTS = Object.keys(SUBJECT_CONFIG);
+
+// Quote "gắt" hơn, đánh vào tâm lý mất mát
+const HARD_QUOTES = [
+    "Mỗi phút lười = 1 bước tụt lại phía sau. 📉",
+    "Mày dừng lại, đối thủ đang lật trang sách tiếp theo.",
+    "Đau khổ của kỷ luật nhẹ tựa lông hồng, đau khổ của hối hận nặng tựa thái sơn.",
+    "Học đi, đừng để nước mắt rơi trên bài thi.",
     "Không có áp lực, không có kim cương. 💎",
     "Tương lai khóc hay cười phụ thuộc vào độ lười của quá khứ.",
-    "Mỗi trang sách là một bước chân đến thành công.",
-    "Thà đổ mồ hôi trên trang sách còn hơn rơi nước mắt lúc làm bài.",
+    "Ngủ bây giờ thì có giấc mơ, nhưng học bây giờ thì biến giấc mơ thành sự thật.",
     "Đừng cúi đầu, vương miện sẽ rơi. 👑",
-    "Học không chơi đánh rơi tuổi trẻ, chơi không học bán rẻ tương lai.",
-    "Cố gắng thêm chút nữa, Đại học đang vẫy gọi!",
-    "Chỉ cần bạn không dừng lại, việc bạn tiến chậm thế nào không quan trọng.",
-    "Giấc mơ không tốn phí, nhưng thực hiện nó thì tốn rất nhiều nỗ lực.",
-    "Đau khổ của kỷ luật nhẹ tựa lông hồng, đau khổ của hối hận nặng tựa thái sơn."
+    "Nếu dễ dàng thì ai cũng đỗ Đại học rồi.",
+    "Chỉ còn XXX ngày nữa là thi, mày định chơi đến bao giờ?"
 ];
 
 type TabView = 'timer' | 'leaderboard' | 'profile';
@@ -32,8 +45,8 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile 
   const [activeTab, setActiveTab] = useState<TabView>('timer');
   
   // Data States
-  const [logs, setLogs] = useState<StudyLog[]>([]); // Recent global logs
-  const [userHistory, setUserHistory] = useState<StudyLog[]>([]); // Specific user history
+  const [logs, setLogs] = useState<StudyLog[]>([]);
+  const [userHistory, setUserHistory] = useState<StudyLog[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   
   // Timer State
@@ -42,6 +55,12 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile 
   const [startTimeStr, setStartTimeStr] = useState<string>("");
   const [endTimeStr, setEndTimeStr] = useState<string>("");
   const [currentQuote, setCurrentQuote] = useState<string>("");
+  
+  // Customization State (In-Timer)
+  const [showColorSettings, setShowColorSettings] = useState(false);
+  const [customBgColor, setCustomBgColor] = useState("#000000");
+  const [customTextColor, setCustomTextColor] = useState("#9ca3af"); // Màu chữ phụ (Label, Quote)
+  const [customNumberColor, setCustomNumberColor] = useState("#9ca3af"); // Màu số chính (Mặc định XÁM)
 
   // Form State
   const [subject, setSubject] = useState(SUBJECTS[0]);
@@ -49,7 +68,14 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile 
   const [notes, setNotes] = useState('');
   const [isSessionActive, setIsSessionActive] = useState(false);
 
-  // 1. Fetch Recent Logs (for "Realtime" list) & Leaderboard Calculation
+  // Tính Streak (Số buổi học hôm nay)
+  const todayStreak = useMemo(() => {
+      if (!user) return 0;
+      const today = new Date().toDateString();
+      return userHistory.filter(log => new Date(log.timestamp).toDateString() === today).length;
+  }, [userHistory, user]);
+
+  // 1. Fetch Recent Logs
   useEffect(() => {
     try {
         const unsubscribe = db.collection("study_logs")
@@ -61,9 +87,9 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile 
             ...doc.data()
           })) as StudyLog[];
           
-          setLogs(fetchedLogs); // Updates the "Realtime" list
+          setLogs(fetchedLogs);
 
-          // Calculate Leaderboard Client-Side
+          // Calculate Leaderboard
           const stats: Record<string, LeaderboardEntry> = {};
           fetchedLogs.forEach(log => {
              if (!stats[log.userId]) {
@@ -87,38 +113,22 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile 
           setLeaderboard(sortedLeaderboard);
 
         }, (error) => {
-           console.error("Lỗi tải nhật ký học tập:", error);
+           console.error("Lỗi tải nhật ký:", error);
         });
         return () => unsubscribe();
     } catch (e) {
-        console.error("Lỗi khởi tạo listener:", e);
+        console.error("Lỗi init:", e);
     }
   }, []);
 
-  // 2. Fetch User History when switching to Profile tab
+  // 2. Fetch User History
   useEffect(() => {
-    if (activeTab === 'profile' && user) {
-        const fetchHistory = async () => {
-             try {
-                // Let's try correct query. If index missing, console will log link.
-                const snapshot = await db.collection("study_logs")
-                    .where("userId", "==", user.uid)
-                    .orderBy("timestamp", "desc")
-                    .limit(50)
-                    .get();
-                
-                const history = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as StudyLog[];
-                setUserHistory(history);
-             } catch (e: any) {
-                 console.log("Fetching history error (likely missing index), falling back to recent logs filter", e);
-                 // Fallback: Filter from the globally fetched `logs`
-                 const myLogs = logs.filter(l => l.userId === user.uid);
-                 setUserHistory(myLogs);
-             }
-        };
-        fetchHistory();
+    if (user) {
+         // Lọc từ logs local để đỡ tốn read nếu chưa có index phức tạp
+         const myLogs = logs.filter(l => l.userId === user.uid);
+         setUserHistory(myLogs);
     }
-  }, [activeTab, user, logs]);
+  }, [user, logs]);
 
   // Timer Logic
   useEffect(() => {
@@ -133,20 +143,33 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile 
     return () => clearInterval(interval);
   }, [isTimerRunning]);
 
+  const handleUserClick = (userId: string) => {
+      if (onViewProfile) {
+          onViewProfile(userId);
+      }
+  };
+
   const startSession = () => {
     if (!user) {
-      alert("Bạn chưa đăng nhập! Vui lòng bấm nút 'Đăng nhập' ở góc trên bên trái màn hình.");
+      alert("Bạn chưa đăng nhập!");
       return;
     }
     if (targetMinutes <= 0) {
-        alert("Thời gian mục tiêu phải lớn hơn 0 phút!");
+        alert("Thời gian mục tiêu phải lớn hơn 0!");
         return;
     }
     const now = new Date();
     setStartTimeStr(now.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}));
     const end = new Date(now.getTime() + targetMinutes * 60000);
     setEndTimeStr(end.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}));
-    setCurrentQuote(MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)]);
+    
+    // Random quote gắt
+    const randomQuote = HARD_QUOTES[Math.floor(Math.random() * HARD_QUOTES.length)];
+    // Thay thế XXX bằng số ngày còn lại (giả sử thi 27/6/2026)
+    const examDate = new Date('2026-06-27');
+    const daysLeft = Math.floor((examDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    setCurrentQuote(randomQuote.replace('XXX', daysLeft.toString()));
+
     setIsSessionActive(true);
     setIsTimerRunning(true);
     setElapsedSeconds(0);
@@ -171,53 +194,37 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile 
         setIsSessionActive(false);
         setElapsedSeconds(0);
         setNotes('');
-        alert("Đã lưu thành tích lên bảng vàng! 🏆");
-        // Switch to profile or leaderboard to see result
+        alert("Đã lưu thành tích! +1 vào chuỗi học tập 🔥");
         setActiveTab('profile');
     } catch (e: any) {
         console.error("Error saving log", e);
         setIsSessionActive(false);
-        alert("Lỗi lưu dữ liệu. Kiểm tra kết nối mạng.");
     }
   };
 
   const handleDeleteLog = async (logId: string) => {
-      if (!window.confirm("Bạn có chắc chắn muốn xóa bản ghi thời gian này không?")) return;
-      
+      if (!window.confirm("Xóa bản ghi này?")) return;
       try {
           await db.collection("study_logs").doc(logId).delete();
-          // Update local state immediately for better UX
-          setUserHistory(prev => prev.filter(log => log.id !== logId));
       } catch (e) {
-          console.error("Error deleting log:", e);
-          alert("Lỗi khi xóa. Vui lòng thử lại.");
+          console.error(e);
       }
   };
 
-  const handleUserClick = (userId: string) => {
-      if (onViewProfile) {
-          onViewProfile(userId);
-      }
-  };
-
-  // --- FLIP CARD ANIMATION COMPONENT ---
-  const FlipCard = ({ value, label }: { value: number, label?: string }) => {
+  // --- COMPONENT CON: FLIP CARD (Updated for Custom Colors) ---
+  const FlipCard = ({ value, label, customColor }: { value: number, label?: string, customColor: string }) => {
       const valStr = value < 10 ? `0${value}` : `${value}`;
-      
       return (
           <div className="flex flex-col items-center gap-2">
-            <div className="relative w-24 h-32 md:w-40 md:h-56 lg:w-48 lg:h-64 bg-[#111] rounded-lg perspective shadow-2xl border border-white/10 group">
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="font-heading text-6xl md:text-8xl lg:text-9xl font-bold text-[#333]">{valStr}</span>
-                </div>
-                <div className="absolute inset-0 h-1/2 overflow-hidden bg-[#1e1e1e] rounded-t-lg border-b border-black z-10 flex items-end justify-center">
-                    <span className="font-heading text-6xl md:text-8xl lg:text-9xl font-bold text-white translate-y-1/2">{valStr}</span>
-                </div>
-                <div className="absolute top-1/2 inset-x-0 bottom-0 overflow-hidden bg-[#1a1a1a] rounded-b-lg border-t border-black/50 z-10 flex items-start justify-center shadow-inner">
-                    <span className="font-heading text-6xl md:text-8xl lg:text-9xl font-bold text-white -translate-y-1/2">{valStr}</span>
-                </div>
-                <div className="absolute top-1/2 left-0 w-full h-[1px] bg-black z-20 shadow-sm"></div>
+            <div className={`relative w-24 h-32 md:w-40 md:h-56 lg:w-48 lg:h-64 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-center shadow-2xl`}>
+                <span 
+                    className={`font-heading text-6xl md:text-8xl lg:text-9xl font-bold transition-colors duration-500`}
+                    style={{ color: customColor }}
+                >
+                    {valStr}
+                </span>
             </div>
+            {label && <span className="text-xs uppercase tracking-widest font-bold opacity-60" style={{ color: customTextColor }}>{label}</span>}
           </div>
       );
   };
@@ -230,58 +237,153 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile 
       let remainingSeconds = totalTargetSeconds - elapsedSeconds;
       if (remainingSeconds < 0) remainingSeconds = 0;
       
+      const percent = Math.min(100, (elapsedSeconds / totalTargetSeconds) * 100);
+      
       const hours = Math.floor(remainingSeconds / 3600);
       const minutes = Math.floor((remainingSeconds % 3600) / 60);
       const seconds = remainingSeconds % 60;
 
+      // Logic cũ: Đổi màu theo thời gian -> BỎ QUA theo yêu cầu
+      // Chỉ giữ hiệu ứng pulse/rung khi sắp hết giờ
+      let pulseEffect = "";
+      let timeStatusText = "Đang tập trung";
+
+      if (remainingSeconds < 300) { 
+           timeStatusText = "Tăng tốc!";
+      }
+      if (remainingSeconds < 60) { 
+           pulseEffect = "animate-pulse"; // Vẫn giữ hiệu ứng nhấp nháy để báo động
+           timeStatusText = "Sắp hết giờ!";
+      }
+
       return (
-          <div className="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center text-white overflow-hidden">
-              <div className="flex flex-col items-center gap-2 mb-4 md:mb-8 animate-in slide-in-from-top-10 duration-700">
-                  <span className="text-xs md:text-sm font-bold tracking-[0.3em] text-gray-500 uppercase">ĐANG HỌC</span>
-                  <div className="inline-flex items-center gap-3 px-6 py-2 rounded-full border border-white/20 bg-white/5">
-                      <BookOpen size={18} className={theme.text} />
-                      <span className="text-xl md:text-3xl font-bold text-white uppercase tracking-wider">{subject}</span>
+          <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center overflow-hidden transition-colors duration-500" style={{ backgroundColor: customBgColor }}>
+              
+              {/* Customization Button */}
+              <div className="absolute top-6 right-6 z-50">
+                   <button onClick={() => setShowColorSettings(!showColorSettings)} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors text-white">
+                       {showColorSettings ? <X size={20}/> : <Settings2 size={20}/>}
+                   </button>
+                   {showColorSettings && (
+                       <div className="absolute top-12 right-0 bg-[#1e1e2e] p-4 rounded-xl border border-white/10 shadow-2xl w-72 animate-in slide-in-from-top-2">
+                           <h4 className="text-white font-bold text-sm mb-3 flex items-center gap-2"><Palette size={14}/> Tùy chỉnh giao diện</h4>
+                           <div className="space-y-4">
+                               {/* Background Color */}
+                               <div>
+                                   <label className="text-xs text-gray-400 block mb-1.5 font-bold uppercase">Màu nền</label>
+                                   <div className="flex gap-2">
+                                       {['#000000', '#1a1a2e', '#0f172a', '#271a1a', '#052e16'].map(c => (
+                                           <button key={c} onClick={() => setCustomBgColor(c)} className={`w-8 h-8 rounded-full border border-white/20 shadow-md ${customBgColor === c ? 'ring-2 ring-white scale-110' : ''}`} style={{background: c}} />
+                                       ))}
+                                   </div>
+                               </div>
+
+                               {/* Number Color - QUAN TRỌNG: Mặc định Xám và tự do chỉnh */}
+                               <div>
+                                   <label className="text-xs text-gray-400 block mb-1.5 font-bold uppercase">Màu số đếm</label>
+                                   <div className="flex gap-2 flex-wrap">
+                                       {/* Các màu Preset: XÁM (Default), Vàng, Đỏ, Xanh, Trắng */}
+                                       {['#9ca3af', '#fbbf24', '#ef4444', '#10b981', '#ffffff'].map(c => (
+                                           <button 
+                                                key={c} 
+                                                onClick={() => setCustomNumberColor(c)} 
+                                                className={`w-8 h-8 rounded-full border border-white/20 shadow-md flex items-center justify-center ${customNumberColor === c ? 'ring-2 ring-white scale-110' : ''}`} 
+                                                style={{background: c}}
+                                           />
+                                       ))}
+                                       {/* Input Color Picker tự do */}
+                                       <div className="relative w-8 h-8 rounded-full overflow-hidden border border-white/20 shadow-md">
+                                           <input 
+                                                type="color" 
+                                                value={customNumberColor} 
+                                                onChange={(e) => setCustomNumberColor(e.target.value)} 
+                                                className="absolute inset-0 w-[150%] h-[150%] -top-[25%] -left-[25%] p-0 border-0 cursor-pointer" 
+                                           />
+                                       </div>
+                                   </div>
+                               </div>
+
+                               {/* Text Color */}
+                               <div>
+                                   <label className="text-xs text-gray-400 block mb-1.5 font-bold uppercase">Màu chữ phụ</label>
+                                   <div className="flex gap-2">
+                                       {['#ffffff', '#9ca3af', '#6b7280', '#fbbf24'].map(c => (
+                                           <button key={c} onClick={() => setCustomTextColor(c)} className={`w-6 h-6 rounded-full border border-white/20 ${customTextColor === c ? 'ring-2 ring-white' : ''}`} style={{background: c}} />
+                                       ))}
+                                   </div>
+                               </div>
+                           </div>
+                       </div>
+                   )}
+              </div>
+
+              {/* Header Info (Subject Badge) */}
+              <div className="flex flex-col items-center gap-2 mb-4 md:mb-12 animate-in slide-in-from-top-10 duration-700">
+                  <span className="text-xs md:text-sm font-bold tracking-[0.3em] uppercase opacity-70" style={{ color: customTextColor }}>
+                      {timeStatusText}
+                  </span>
+                  <div className="inline-flex items-center gap-3 px-8 py-2.5 rounded-full border border-white/10 bg-[#111]/50 backdrop-blur-md shadow-xl">
+                      <span className="text-2xl">{SUBJECT_CONFIG[subject].icon}</span>
+                      <span className="text-xl md:text-2xl font-black uppercase tracking-widest" style={{ color: customNumberColor }}>{subject}</span>
                   </div>
               </div>
               
-              <div className="flex justify-center items-center gap-2 md:gap-4 mb-8 md:mb-12 scale-75 md:scale-90 lg:scale-100 origin-center">
-                  <FlipCard value={hours} label="Giờ" />
-                  <div className="flex flex-col gap-2 md:gap-4 opacity-50 pt-4"><div className="w-2 h-2 rounded-full bg-[#555]"></div><div className="w-2 h-2 rounded-full bg-[#555]"></div></div>
-                  <FlipCard value={minutes} label="Phút" />
-                  <div className="flex flex-col gap-2 md:gap-4 opacity-50 pt-4"><div className="w-2 h-2 rounded-full bg-[#555]"></div><div className="w-2 h-2 rounded-full bg-[#555]"></div></div>
-                  <FlipCard value={seconds} label="Giây" />
+              {/* Main Timer Display */}
+              <div className={`flex justify-center items-center gap-2 md:gap-6 mb-8 md:mb-12 scale-75 md:scale-90 lg:scale-100 origin-center ${pulseEffect}`}>
+                  <FlipCard value={hours} label="Giờ" customColor={customNumberColor} />
+                  <span className={`text-4xl md:text-6xl font-bold -mt-8`} style={{ color: customNumberColor }}>:</span>
+                  <FlipCard value={minutes} label="Phút" customColor={customNumberColor} />
+                  <span className={`text-4xl md:text-6xl font-bold -mt-8`} style={{ color: customNumberColor }}>:</span>
+                  <FlipCard value={seconds} label="Giây" customColor={customNumberColor} />
               </div>
 
-              <div className="w-full max-w-2xl px-6 flex flex-col items-center gap-6">
-                  <div className="flex w-full justify-between px-8 md:px-20 text-gray-400 font-mono text-xs md:text-sm border-t border-white/10 pt-4">
-                      <div className="flex flex-col items-center gap-1">
-                          <span className="text-[10px] uppercase tracking-widest opacity-50">Bắt đầu</span>
-                          <span className="text-white font-bold">{startTimeStr}</span>
-                      </div>
-                      <div className="flex flex-col items-center gap-1">
-                          <span className="text-[10px] uppercase tracking-widest opacity-50">Kết thúc</span>
-                          <span className={`font-bold ${remainingSeconds === 0 ? 'text-red-500 animate-pulse' : 'text-white'}`}>{endTimeStr}</span>
-                      </div>
+              {/* Progress Bar & Stats */}
+              <div className="w-full max-w-3xl px-6 flex flex-col items-center gap-8">
+                  {/* Progress Bar */}
+                  <div className="w-full h-1.5 bg-gray-800/50 rounded-full overflow-hidden relative">
+                      <div 
+                        className={`h-full transition-all duration-1000 ease-linear`}
+                        style={{ width: `${percent}%`, backgroundColor: customNumberColor }}
+                      ></div>
                   </div>
-                  <div className="text-center max-w-xl h-10 px-4">
-                      <p className="text-white/80 text-sm md:text-lg font-hand transition-opacity duration-1000 line-clamp-2">"{currentQuote}"</p>
+
+                  {/* Motivational Quote */}
+                  <div className="text-center max-w-xl h-16 px-4 flex items-center justify-center">
+                      <p className="text-sm md:text-xl font-medium transition-opacity duration-1000 leading-relaxed font-hand tracking-wide" style={{ color: customTextColor }}>
+                          "{currentQuote}"
+                      </p>
                   </div>
                   
-                  <div className="flex justify-center gap-6 mt-2">
+                  {/* Streak Info */}
+                  <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/5">
+                      <Flame size={14} className="text-orange-500 fill-orange-500" />
+                      <span className="text-xs font-bold" style={{ color: customTextColor }}>Chuỗi hôm nay: {todayStreak} phiên</span>
+                  </div>
+
+                  {/* Controls */}
+                  <div className="flex justify-center gap-8 mt-2">
                       {!isTimerRunning ? (
                           remainingSeconds > 0 && (
-                            <button onClick={() => setIsTimerRunning(true)} className={`w-16 h-16 md:w-20 md:h-20 rounded-full bg-black border-2 flex items-center justify-center text-white shadow-lg transition-all transform hover:scale-110 ${theme.border} group`}>
-                                <Play size={24} fill="white" className={`${theme.text} group-hover:fill-current`} />
+                            <button onClick={() => setIsTimerRunning(true)} className={`w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shadow-lg transition-all transform hover:scale-110 group hover:bg-white/10`}>
+                                <Play size={32} fill={customNumberColor} style={{ color: customNumberColor }} />
                             </button>
                           )
                       ) : (
-                          <button onClick={() => setIsTimerRunning(false)} className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-black border-2 border-yellow-600 flex items-center justify-center text-white shadow-lg transition-all transform hover:scale-110 group">
-                             <Pause size={24} fill="white" className="text-yellow-500 group-hover:fill-current" />
+                          <button onClick={() => setIsTimerRunning(false)} className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shadow-lg transition-all transform hover:scale-110 group hover:bg-white/10">
+                             <Pause size={32} fill={customNumberColor} style={{ color: customNumberColor }} />
                           </button>
                       )}
-                      <button onClick={finishSession} className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-black border-2 border-red-600 flex items-center justify-center text-white shadow-lg transition-all transform hover:scale-110 group">
-                         <Square size={20} fill="white" className="text-red-500 group-hover:fill-current" />
-                      </button>
+                      
+                      {/* Stop Button */}
+                      <div className="relative group">
+                          <button onClick={finishSession} className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shadow-lg transition-all transform hover:scale-110 hover:bg-red-500/10 hover:border-red-500/50">
+                             <Square size={24} fill="#ef4444" className="text-red-500" />
+                          </button>
+                          <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-40 p-2 bg-red-600 text-white text-[10px] font-bold text-center rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-xl">
+                              ⚠️ Dừng bây giờ sẽ kết thúc phiên học này!
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-red-600"></div>
+                          </div>
+                      </div>
                   </div>
               </div>
           </div>
@@ -301,7 +403,10 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile 
                         <img src={user.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${user.displayName}`} alt="User" className="w-10 h-10 rounded-full border border-white/20 object-cover" />
                         <div>
                             <h3 className="text-base font-bold text-white leading-tight">{user.displayName}</h3>
-                            <p className={`text-[10px] uppercase font-bold tracking-wider ${theme.text}`}>Chiến binh 2026</p>
+                            <div className="flex items-center gap-2">
+                                <p className={`text-[10px] uppercase font-bold tracking-wider ${theme.text}`}>Chiến binh 2026</p>
+                                <span className="text-[10px] text-orange-400 flex items-center gap-0.5 bg-orange-500/10 px-1.5 rounded"><Flame size={10} fill="currentColor"/> {todayStreak}</span>
+                            </div>
                         </div>
                 </div>
            </div>
@@ -341,10 +446,15 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile 
                     <div className="space-y-5">
                        <div>
                           <label className="block text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-wider">Môn học</label>
-                          <div className="grid grid-cols-3 sm:grid-cols-3 gap-2">
+                          <div className="grid grid-cols-3 gap-2">
                              {SUBJECTS.map(sub => (
-                                <button key={sub} onClick={() => setSubject(sub)} className={`py-2.5 rounded-lg text-sm font-medium transition-all ${subject === sub ? `bg-gradient-to-r ${theme.buttonGradient} text-white shadow-lg` : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}>
-                                   {sub}
+                                <button 
+                                    key={sub} 
+                                    onClick={() => setSubject(sub)} 
+                                    className={`py-2 rounded-lg text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 border ${subject === sub ? `bg-white/10 text-white border-white/20 shadow-lg` : 'bg-black/20 text-gray-500 border-transparent hover:bg-white/5'}`}
+                                >
+                                   <span className="text-base">{SUBJECT_CONFIG[sub].icon}</span>
+                                   <span>{sub}</span>
                                 </button>
                              ))}
                           </div>
@@ -394,7 +504,9 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile 
                                   <span className="text-[10px] text-gray-500 flex-shrink-0">{new Date(log.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}</span>
                                </div>
                                <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-2 truncate">
-                                  <span className="bg-white/10 px-1.5 py-0.5 rounded text-[10px] font-medium">{log.subject}</span>
+                                  <span className={`bg-white/10 px-1.5 py-0.5 rounded text-[10px] font-bold ${SUBJECT_CONFIG[log.subject]?.color || 'text-white'}`}>
+                                      {SUBJECT_CONFIG[log.subject]?.icon} {log.subject}
+                                  </span>
                                   <span>{log.durationMinutes} phút</span>
                                </div>
                            </div>
@@ -489,7 +601,7 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile 
                                        <p className="text-sm text-gray-300 italic px-4 leading-relaxed font-hand">
                                            {user.bio}
                                        </p>
-                                       <Quote size={12} className="absolute bottom-0 right-0 text-gray-600" />
+                                       <Quote size={12} className="absolute bottom-3 right-3 text-gray-600" />
                                    </div>
                                )}
 
@@ -541,7 +653,9 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile 
                                        <div className="hover-shine glass-panel p-4 rounded-xl border border-white/5 hover:border-white/20 transition-all relative">
                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                                                <div className="flex items-center gap-2">
-                                                    <span className="bg-white/10 text-[10px] font-bold px-2 py-0.5 rounded text-gray-300">{log.subject}</span>
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold bg-white/5 ${SUBJECT_CONFIG[log.subject]?.color}`}>
+                                                        {SUBJECT_CONFIG[log.subject]?.icon} {log.subject}
+                                                    </span>
                                                     <span className="text-[10px] text-gray-500 flex items-center gap-1 font-medium">
                                                         {new Date(log.timestamp).toLocaleDateString('vi-VN', {day:'2-digit', month:'2-digit'})}
                                                         {' • '}
