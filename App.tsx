@@ -774,10 +774,8 @@ const App: React.FC = () => {
         {/* GLOBAL COMPONENTS */}
         <MusicPlayer theme={currentTheme} youtubeVideo={youtubeVideo} />
         
-        {/* AI ASSISTANT */}
-        {(activeTab === 'home' || activeTab === 'timer' || activeTab === 'learning') && (
-            <AiAssistant theme={currentTheme} />
-        )}
+        {/* AI ASSISTANT - Luôn hiển thị ở mọi tab */}
+        <AiAssistant theme={currentTheme} />
       </div>
     </div>
   );

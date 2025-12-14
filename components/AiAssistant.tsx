@@ -20,16 +20,36 @@ const AiAssistant: React.FC<AiAssistantProps> = ({ theme }) => {
   // Biến kiểm soát chế độ phóng to toàn màn hình trên PC
   const [cheDoToanManHinh, setCheDoToanManHinh] = useState(false); 
 
-  // Danh sách lịch sử tin nhắn
-  const [lichSuTinNhan, setLichSuTinNhan] = useState<ChatMessage[]>([
+  // Danh sách lịch sử tin nhắn - KHỞI TẠO TỪ LOCALSTORAGE
+  const [lichSuTinNhan, setLichSuTinNhan] = useState<ChatMessage[]>(() => {
+    try {
+      const savedChat = localStorage.getItem('ai_chat_history');
+      if (savedChat) {
+        return JSON.parse(savedChat);
+      }
+    } catch (error) {
+      console.error("Lỗi tải lịch sử chat:", error);
+    }
+    return [
       { role: 'model', text: 'Chào cậu! 👋 Mình là trợ lý AI. Gửi ảnh đề bài hoặc câu hỏi qua đây mình giải chi tiết cho nhé!' }
-  ]);
+    ];
+  });
   
   // Ref để tự động cuộn xuống tin nhắn cuối cùng
   const cuoiDoanChatRef = useRef<HTMLDivElement>(null);
 
   // --- HIỆU ỨNG (EFFECT) ---
-  // Tự động cuộn xuống dưới khi có tin nhắn mới hoặc khi mở chat
+  
+  // 1. Lưu lịch sử chat vào LocalStorage mỗi khi có thay đổi
+  useEffect(() => {
+    try {
+      localStorage.setItem('ai_chat_history', JSON.stringify(lichSuTinNhan));
+    } catch (error) {
+      console.error("Không thể lưu lịch sử chat (có thể do bộ nhớ đầy):", error);
+    }
+  }, [lichSuTinNhan]);
+
+  // 2. Tự động cuộn xuống dưới khi có tin nhắn mới hoặc khi mở chat
   useEffect(() => {
     if (dangMoChat) {
         setTimeout(() => {
@@ -58,7 +78,9 @@ const AiAssistant: React.FC<AiAssistantProps> = ({ theme }) => {
   // Hàm xóa lịch sử chat
   const xoaLichSuChat = () => {
       if(window.confirm("Bạn muốn xóa toàn bộ đoạn chat này?")) {
-          setLichSuTinNhan([{ role: 'model', text: 'Đã dọn dẹp! Bắt đầu lại nào. 🚀' }]);
+          const resetChat: ChatMessage[] = [{ role: 'model', text: 'Đã dọn dẹp! Bắt đầu lại nào. 🚀' }];
+          setLichSuTinNhan(resetChat);
+          localStorage.setItem('ai_chat_history', JSON.stringify(resetChat));
       }
   };
 
@@ -67,8 +89,9 @@ const AiAssistant: React.FC<AiAssistantProps> = ({ theme }) => {
   // - Mobile: inset-0 (Full màn hình)
   // - PC (Mặc định): bottom-6 right-6 (Góc dưới phải)
   // - PC (Toàn màn hình): inset-6 (Cách lề 24px)
+  // UPDATE: Z-Index tăng lên z-[80] để đè lên Timer (z-[60])
   const lopCssKhungChat = `
-    fixed z-50 bg-[#1a1a2e] flex flex-col shadow-2xl overflow-hidden transition-all duration-300 ease-out border border-white/10
+    fixed z-[80] bg-[#1a1a2e] flex flex-col shadow-2xl overflow-hidden transition-all duration-300 ease-out border border-white/10
     
     /* TRẠNG THÁI ĐÓNG/MỞ */
     ${dangMoChat 
@@ -90,9 +113,10 @@ const AiAssistant: React.FC<AiAssistantProps> = ({ theme }) => {
   return (
     <>
       {/* 1. NÚT TRÒN ĐỂ MỞ CHAT (Chỉ hiện khi đang đóng chat) */}
+      {/* UPDATE: Z-Index tăng lên z-[70] để đè lên Timer */}
       <button
         onClick={() => setDangMoChat(true)}
-        className={`fixed z-40 bottom-24 right-6 md:bottom-6 md:right-6 w-14 h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br ${theme.buttonGradient} shadow-xl flex items-center justify-center text-white hover:scale-110 transition-transform duration-300 group border-2 border-white/20 ${dangMoChat ? 'opacity-0 pointer-events-none scale-0' : 'opacity-100 scale-100'}`}
+        className={`fixed z-[70] bottom-24 right-6 md:bottom-6 md:right-6 w-14 h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br ${theme.buttonGradient} shadow-xl flex items-center justify-center text-white hover:scale-105 hover:bg-white/10 transition-transform duration-300 group border-2 border-white/20 ${dangMoChat ? 'opacity-0 pointer-events-none scale-0' : 'opacity-100 scale-100'}`}
       >
           <Bot size={28} className="group-hover:rotate-12 transition-transform" />
           <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-[#0f0c29] animate-pulse"></div>
