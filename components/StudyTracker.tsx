@@ -43,6 +43,64 @@ const HARD_QUOTES = [
 
 type TabView = 'timer' | 'leaderboard' | 'profile';
 
+// --- COMPONENT CON: FLIP CARD (STYLE CƠ HỌC / SPLIT FLAP) ---
+// QUAN TRỌNG: Đã đưa ra ngoài component StudyTracker để tránh re-render
+const FlipCard = ({ value, label, customColor, textColor }: { value: number, label?: string, customColor: string, textColor: string }) => {
+    const valStr = value < 10 ? `0${value}` : `${value}`;
+    
+    // Màu nền thẻ (Mặc định tối để số nổi bật)
+    const cardBg = "#202023"; 
+
+    return (
+        <div className="flex flex-col items-center gap-3">
+          {/* Main Card Container */}
+          <div className="relative group perspective-1000">
+              <div 
+                key={value} // Trigger animation khi số thay đổi
+                className="relative w-24 h-32 md:w-36 md:h-48 lg:w-44 lg:h-60 rounded-xl flex items-center justify-center overflow-hidden shadow-[0_10px_20px_rgba(0,0,0,0.5)] border border-white/5 animate-in zoom-in-95 duration-200"
+                style={{ backgroundColor: cardBg }}
+              >
+                  {/* Nửa trên (Bóng sáng hơn để tạo khối 3D) */}
+                  <div className="absolute top-0 left-0 w-full h-1/2 bg-white/5 z-0 border-b border-black/30"></div>
+                  
+                  {/* Đường cắt ngang (Split line) */}
+                  <div className="absolute top-1/2 left-0 w-full h-[2px] bg-[#000] z-20 shadow-sm opacity-50"></div>
+                  
+                  {/* Rãnh neo cơ khí 2 bên (Side Notches) */}
+                  <div className="absolute top-1/2 left-0 w-1.5 h-3 bg-[#111] rounded-r-full -translate-y-1/2 z-20"></div>
+                  <div className="absolute top-1/2 right-0 w-1.5 h-3 bg-[#111] rounded-l-full -translate-y-1/2 z-20"></div>
+
+                  {/* Số hiển thị */}
+                  <span 
+                      className="relative z-10 font-heading text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter leading-none"
+                      style={{ 
+                          color: customColor,
+                          textShadow: '0 2px 4px rgba(0,0,0,0.5)' // Bóng chữ nhẹ
+                      }}
+                  >
+                      {valStr}
+                  </span>
+                  
+                  {/* Bóng đổ nội bên trong thẻ */}
+                  <div className="absolute inset-0 shadow-inner rounded-xl pointer-events-none z-10 border border-white/5"></div>
+              </div>
+              
+              {/* Bóng phản chiếu dưới chân thẻ */}
+              <div 
+                className="absolute -bottom-4 left-2 right-2 h-4 blur-md opacity-40 rounded-[100%]"
+                style={{ backgroundColor: customColor }}
+              ></div>
+          </div>
+          
+          {label && (
+            <span className="text-xs md:text-sm font-bold uppercase tracking-[0.3em] opacity-60" style={{ color: textColor }}>
+                {label}
+            </span>
+          )}
+        </div>
+    );
+};
+
 const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile, onSelectVideo }) => {
   const [activeTab, setActiveTab] = useState<TabView>('timer');
   
@@ -60,7 +118,7 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile,
   const [showColorSettings, setShowColorSettings] = useState(false);
   const [customBgColor, setCustomBgColor] = useState("#000000");
   const [customTextColor, setCustomTextColor] = useState("#9ca3af"); // Màu chữ phụ (Label, Quote)
-  const [customNumberColor, setCustomNumberColor] = useState("#9ca3af"); // Màu số chính (Mặc định XÁM)
+  const [customNumberColor, setCustomNumberColor] = useState("#ffffff"); // Màu số chính (Mặc định TRẮNG cho nổi trên nền thẻ đen)
 
   // Music Modal State in Timer
   const [showMusicSearch, setShowMusicSearch] = useState(false);
@@ -211,24 +269,6 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile,
       }
   };
 
-  // --- COMPONENT CON: FLIP CARD (Updated for Custom Colors) ---
-  const FlipCard = ({ value, label, customColor }: { value: number, label?: string, customColor: string }) => {
-      const valStr = value < 10 ? `0${value}` : `${value}`;
-      return (
-          <div className="flex flex-col items-center gap-2">
-            <div className={`relative w-24 h-32 md:w-40 md:h-56 lg:w-48 lg:h-64 bg-white/5 rounded-2xl border border-white/10 flex items-center justify-center shadow-2xl`}>
-                <span 
-                    className={`font-heading text-6xl md:text-8xl lg:text-9xl font-bold transition-colors duration-500`}
-                    style={{ color: customColor }}
-                >
-                    {valStr}
-                </span>
-            </div>
-            {label && <span className="text-xs uppercase tracking-widest font-bold opacity-60" style={{ color: customTextColor }}>{label}</span>}
-          </div>
-      );
-  };
-
   // ----------------------------------------------------------------------
   // VIEW: TIMER ACTIVE (FULLSCREEN OVERLAY)
   // ----------------------------------------------------------------------
@@ -306,12 +346,12 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile,
                                    </div>
                                </div>
 
-                               {/* Number Color - QUAN TRỌNG: Mặc định Xám và tự do chỉnh */}
+                               {/* Number Color - QUAN TRỌNG: Mặc định TRẮNG và tự do chỉnh */}
                                <div>
                                    <label className="text-xs text-gray-400 block mb-1.5 font-bold uppercase">Màu số đếm</label>
                                    <div className="flex gap-2 flex-wrap">
-                                       {/* Các màu Preset: XÁM (Default), Vàng, Đỏ, Xanh, Trắng */}
-                                       {['#9ca3af', '#fbbf24', '#ef4444', '#10b981', '#ffffff'].map(c => (
+                                       {/* Các màu Preset */}
+                                       {['#ffffff', '#9ca3af', '#fbbf24', '#ef4444', '#10b981'].map(c => (
                                            <button 
                                                 key={c} 
                                                 onClick={() => setCustomNumberColor(c)} 
@@ -335,7 +375,7 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile,
                                <div>
                                    <label className="text-xs text-gray-400 block mb-1.5 font-bold uppercase">Màu chữ phụ</label>
                                    <div className="flex gap-2">
-                                       {['#ffffff', '#9ca3af', '#6b7280', '#fbbf24'].map(c => (
+                                       {['#9ca3af', '#ffffff', '#6b7280', '#fbbf24'].map(c => (
                                            <button key={c} onClick={() => setCustomTextColor(c)} className={`w-6 h-6 rounded-full border border-white/20 ${customTextColor === c ? 'ring-2 ring-white' : ''}`} style={{background: c}} />
                                        ))}
                                    </div>
@@ -357,12 +397,12 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile,
               </div>
               
               {/* Main Timer Display */}
-              <div className={`flex justify-center items-center gap-2 md:gap-6 mb-8 md:mb-12 scale-75 md:scale-90 lg:scale-100 origin-center ${pulseEffect}`}>
-                  <FlipCard value={hours} label="Giờ" customColor={customNumberColor} />
-                  <span className={`text-4xl md:text-6xl font-bold -mt-8`} style={{ color: customNumberColor }}>:</span>
-                  <FlipCard value={minutes} label="Phút" customColor={customNumberColor} />
-                  <span className={`text-4xl md:text-6xl font-bold -mt-8`} style={{ color: customNumberColor }}>:</span>
-                  <FlipCard value={seconds} label="Giây" customColor={customNumberColor} />
+              <div className={`flex justify-center items-center gap-2 md:gap-4 mb-8 md:mb-12 scale-75 md:scale-90 lg:scale-100 origin-center ${pulseEffect}`}>
+                  <FlipCard value={hours} label="Giờ" customColor={customNumberColor} textColor={customTextColor} />
+                  <span className={`text-4xl md:text-6xl font-bold -mt-12 opacity-50`} style={{ color: customNumberColor }}>:</span>
+                  <FlipCard value={minutes} label="Phút" customColor={customNumberColor} textColor={customTextColor} />
+                  <span className={`text-4xl md:text-6xl font-bold -mt-12 opacity-50`} style={{ color: customNumberColor }}>:</span>
+                  <FlipCard value={seconds} label="Giây" customColor={customNumberColor} textColor={customTextColor} />
               </div>
 
               {/* Progress Bar & Stats */}
@@ -507,41 +547,59 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile,
                  </div>
               </div>
 
+              {/* BẢNG VÀNG LIVE - ĐÃ CHUYỂN SANG DẠNG GRID CARD */}
               <div className="lg:col-span-2">
                  <div className="flex items-center justify-between mb-4 mt-4 lg:mt-0">
                     <h3 className="text-lg font-bold text-white flex items-center gap-2"><LayoutList size={20} className="text-yellow-400" /> Bảng vàng Live</h3>
                     <span className="text-[10px] text-gray-500 bg-white/5 px-2 py-1 rounded-full flex items-center gap-1 uppercase font-bold tracking-wider"><span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> Online</span>
                  </div>
-                 <div className="space-y-2">
+                 
+                 {/* GRID LAYOUT THAY VÌ LIST DỌC */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
                     {logs.slice(0, 10).map((log) => (
-                        <div key={log.id} className="hover-shine glass-panel p-3 rounded-xl flex items-center gap-3 hover:bg-white/5 transition-colors">
-                           <img 
-                                src={log.userAvatar || `https://api.dicebear.com/7.x/initials/svg?seed=${log.userName}`} 
-                                alt="avt" 
-                                className="w-9 h-9 rounded-full border border-gray-600 object-cover cursor-pointer hover:border-white/50" 
-                                onClick={() => handleUserClick(log.userId)}
-                           />
-                           <div className="flex-grow min-w-0">
-                               <div className="flex justify-between items-baseline">
-                                  <span 
-                                    className={`font-bold text-sm truncate pr-2 cursor-pointer hover:underline ${user && log.userId === user.uid ? theme.text : 'text-white'}`}
+                        <div key={log.id} className="hover-shine glass-panel p-4 rounded-xl flex flex-col gap-2 hover:bg-white/5 transition-all border border-white/5 relative overflow-hidden group">
+                           {/* Decorative background shape */}
+                           <div className={`absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-white/5 to-transparent rounded-bl-3xl -mr-4 -mt-4 transition-all group-hover:from-${SUBJECT_CONFIG[log.subject]?.color.split('-')[1] || 'white'}-500/20`}></div>
+
+                           <div className="flex items-center gap-3 relative z-10">
+                               <img 
+                                    src={log.userAvatar || `https://api.dicebear.com/7.x/initials/svg?seed=${log.userName}`} 
+                                    alt="avt" 
+                                    className="w-10 h-10 rounded-full border border-gray-600 object-cover cursor-pointer hover:border-white/50 shadow-md" 
                                     onClick={() => handleUserClick(log.userId)}
-                                  >
-                                      {log.userName}
+                               />
+                               <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                     <span 
+                                        className={`font-bold text-sm truncate cursor-pointer hover:underline ${user && log.userId === user.uid ? theme.text : 'text-white'}`}
+                                        onClick={() => handleUserClick(log.userId)}
+                                     >
+                                         {log.userName}
+                                     </span>
+                                     {log.isCompleted && <CheckCircle size={14} className="text-green-500 fill-green-500/10" />}
+                                  </div>
+                                  <span className="text-[10px] text-gray-500 flex items-center gap-1">
+                                      <History size={10} /> {new Date(log.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}
                                   </span>
-                                  <span className="text-[10px] text-gray-500 flex-shrink-0">{new Date(log.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}</span>
-                               </div>
-                               <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-2 truncate">
-                                  <span className={`bg-white/10 px-1.5 py-0.5 rounded text-[10px] font-bold ${SUBJECT_CONFIG[log.subject]?.color || 'text-white'}`}>
-                                      {SUBJECT_CONFIG[log.subject]?.icon} {log.subject}
-                                  </span>
-                                  <span>{log.durationMinutes} phút</span>
                                </div>
                            </div>
-                           {log.isCompleted && <div className="p-1.5 bg-green-500/20 rounded-full"><CheckCircle size={14} className="text-green-500" /></div>}
+
+                           <div className="flex items-center justify-between mt-1 relative z-10 bg-black/20 p-2 rounded-lg border border-white/5">
+                              <div className="flex items-center gap-2">
+                                  <span className="text-xl">{SUBJECT_CONFIG[log.subject]?.icon}</span>
+                                  <div className="flex flex-col">
+                                      <span className={`text-[10px] font-bold uppercase tracking-wider ${SUBJECT_CONFIG[log.subject]?.color || 'text-white'}`}>{log.subject}</span>
+                                      <span className="text-xs text-gray-400">Mục tiêu: {log.targetMinutes}p</span>
+                                  </div>
+                              </div>
+                              <div className="text-right">
+                                  <span className="text-xl font-bold text-white">{log.durationMinutes}</span>
+                                  <span className="text-[10px] text-gray-500 ml-0.5">phút</span>
+                              </div>
+                           </div>
                         </div>
                     ))}
-                    {logs.length === 0 && <div className="text-center py-10 text-gray-500 text-sm">Chưa có ai học hôm nay.</div>}
+                    {logs.length === 0 && <div className="col-span-full text-center py-10 text-gray-500 text-sm border border-dashed border-white/10 rounded-xl">Chưa có ai học hôm nay.</div>}
                  </div>
               </div>
            </div>

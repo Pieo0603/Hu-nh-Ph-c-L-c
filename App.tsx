@@ -432,7 +432,7 @@ const App: React.FC = () => {
                 onClick={() => { setActiveTab('learning'); setLearningSubject('menu'); }}
                 className={`flex items-center gap-2 px-3 md:px-5 py-2 rounded-full transition-all duration-300 text-xs md:text-sm font-bold ${activeTab === 'learning' ? `bg-white text-black shadow-lg` : 'text-gray-400 hover:text-white'}`}
               >
-                <BrainCircuit size={14} />
+                <GraduationCap size={16} />
                 <span className="hidden md:inline">Học tập</span>
               </button>
               <button 
@@ -731,6 +731,9 @@ const App: React.FC = () => {
                {learningSubject === 'menu' ? (
                    <div className="max-w-4xl mx-auto">
                        <div className="text-center mb-12">
+                           <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-white/10 mb-6 shadow-2xl backdrop-blur-sm group hover:scale-105 transition-transform duration-500">
+                               <GraduationCap size={40} className="text-indigo-300 drop-shadow-[0_0_10px_rgba(165,180,252,0.5)]" />
+                           </div>
                            <h2 className={`text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r ${currentTheme.gradientTitle} uppercase tracking-widest mb-3`}>
                                Góc Học Tập
                            </h2>
