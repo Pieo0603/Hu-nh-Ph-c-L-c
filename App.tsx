@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import StarBackground from './components/StarBackground';
 import Countdown from './components/Countdown';
 import MessageForm from './components/MessageForm';

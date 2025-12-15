@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../services/firebase';
 import { StudyLog, ThemeConfig, LeaderboardEntry, AppUser } from '../types';
-import { Play, Pause, Square, CheckCircle, Clock, Music, LogOut, LayoutList, Trophy, User as UserIcon, AlertCircle, ArrowRight, History, Lock, Trash2, GraduationCap, Link as LinkIcon, Quote, Flame, Palette, Settings2, X } from 'lucide-react';
+import { Play, Pause, Square, CheckCircle, Clock, Music, LayoutList, Trophy, User as UserIcon, AlertCircle, History, Lock, Trash2, Link as LinkIcon, Quote, Flame, Palette, Settings2, X } from 'lucide-react';
 import MusicTab from './MusicTab';
 
 interface StudyTrackerProps {
@@ -54,8 +54,6 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile,
   // Timer State
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0); 
-  const [startTimeStr, setStartTimeStr] = useState<string>("");
-  const [endTimeStr, setEndTimeStr] = useState<string>("");
   const [currentQuote, setCurrentQuote] = useState<string>("");
   
   // Customization State (In-Timer)
@@ -164,9 +162,6 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile,
         return;
     }
     const now = new Date();
-    setStartTimeStr(now.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}));
-    const end = new Date(now.getTime() + targetMinutes * 60000);
-    setEndTimeStr(end.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}));
     
     // Random quote gắt
     const randomQuote = HARD_QUOTES[Math.floor(Math.random() * HARD_QUOTES.length)];

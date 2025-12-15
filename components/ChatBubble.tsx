@@ -12,7 +12,7 @@ interface ChatBubbleProps {
 
 // Component phụ: Chịu trách nhiệm hiển thị nội dung Text + Toán học (LaTeX)
 const BoHienThiNoiDung: React.FC<{ vanBan: string }> = ({ vanBan }) => {
-  const [sanSang, setSanSang] = useState(false);
+  const [, setSanSang] = useState(false);
 
   useEffect(() => {
     // Kiểm tra xem thư viện Katex (hiển thị toán) đã tải xong chưa

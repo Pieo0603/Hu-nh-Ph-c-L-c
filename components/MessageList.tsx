@@ -122,7 +122,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, theme, onViewProfil
                   {msg.imageUrl && (
                     <div 
                         className="relative w-full rounded-xl overflow-hidden border border-white/10 bg-black shadow-inner cursor-zoom-in group/image mt-1"
-                        onClick={() => setViewingImage(msg.imageUrl)}
+                        onClick={() => setViewingImage(msg.imageUrl || null)}
                     >
                       <img 
                         src={msg.imageUrl} 

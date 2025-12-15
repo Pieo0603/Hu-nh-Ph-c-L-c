@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Star, ChevronRight, Lock, Unlock, Loader2, ArrowLeft } from 'lucide-react';
+import { Lock, Unlock, Loader2, ArrowLeft } from 'lucide-react';
 import { db } from '../services/firebase';
 import { AppUser, ThemeConfig, VocabItem, Topic } from '../types';
 

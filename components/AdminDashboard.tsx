@@ -1,13 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Message, ThemeConfig, VocabItem, StudyLog } from '../types';
-import { X, Trash2, CheckSquare, Square, Search, Download, Filter, LogOut, Wrench, Lock, Lightbulb, Upload, FileText, Database, PlusCircle, Wand2, Info, BookOpen, RefreshCw, Clock, CheckCircle, AlertCircle, Key, RefreshCcw } from 'lucide-react';
+import { X, Trash2, CheckSquare, Search, Download, Filter, LogOut, Wrench, Lock, Upload, Database, RefreshCw, Clock, CheckCircle, AlertCircle, Key, RefreshCcw } from 'lucide-react';
 import { db } from '../services/firebase';
 
 interface AdminDashboardProps {
   messages: Message[];
   onDeleteMessages: (ids: string[]) => void;
   onClose: () => void;
-  theme: ThemeConfig;
+  theme?: ThemeConfig; // Make theme optional or ignore if unused in component logic
 }
 
 type AdminTab = 'messages' | 'upload' | 'vocab' | 'study_logs' | 'settings';
@@ -19,11 +19,11 @@ const SAMPLE_VOCAB = [
   { word: "detailed", type: "adj", pronunciation: "/ˈdiːteɪld/", meaning: "chi tiết", level: "B2", synonyms: "specific", antonyms: "general" }
 ];
 
-const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessages, onClose, theme }) => {
+const AdminDashboard: React.FC<AdminDashboardProps> = ({ messages, onDeleteMessages, onClose }) => {
   const [activeTab, setActiveTab] = useState<AdminTab>('messages');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [sortOrder] = useState<'newest' | 'oldest'>('newest'); // Removed unused setSortOrder
 
   // Trạng thái quản lý từ vựng
   const [vocabList, setVocabList] = useState<VocabItem[]>([]);

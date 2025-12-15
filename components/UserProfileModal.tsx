@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../services/firebase';
 import { AppUser } from '../types';
-import { X, User, Link as LinkIcon, GraduationCap, Quote, Loader2, MapPin } from 'lucide-react';
+import { X, Link as LinkIcon, GraduationCap, Quote, Loader2 } from 'lucide-react';
 
 interface UserProfileModalProps {
   userId: string | null;
