@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../services/firebase';
 import { StudyLog, ThemeConfig, LeaderboardEntry, AppUser } from '../types';
-import { Play, Pause, Square, CheckCircle, Clock, BookOpen, LogOut, LayoutList, Trophy, User as UserIcon, AlertCircle, ArrowRight, History, Lock, Trash2, GraduationCap, Link as LinkIcon, Quote, Flame, Palette, Settings2, X } from 'lucide-react';
+import { Play, Pause, Square, CheckCircle, Clock, Music, LogOut, LayoutList, Trophy, User as UserIcon, AlertCircle, ArrowRight, History, Lock, Trash2, GraduationCap, Link as LinkIcon, Quote, Flame, Palette, Settings2, X } from 'lucide-react';
+import MusicTab from './MusicTab';
 
 interface StudyTrackerProps {
   theme: ThemeConfig;
   user: AppUser | null;
   onViewProfile?: (userId: string) => void;
+  onSelectVideo?: (videoId: string, title: string, channel: string, thumbnail: string) => void;
 }
 
 // Cấu hình môn học với Icon và Màu sắc đặc trưng
@@ -41,7 +43,7 @@ const HARD_QUOTES = [
 
 type TabView = 'timer' | 'leaderboard' | 'profile';
 
-const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile }) => {
+const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile, onSelectVideo }) => {
   const [activeTab, setActiveTab] = useState<TabView>('timer');
   
   // Data States
@@ -61,6 +63,9 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile 
   const [customBgColor, setCustomBgColor] = useState("#000000");
   const [customTextColor, setCustomTextColor] = useState("#9ca3af"); // Màu chữ phụ (Label, Quote)
   const [customNumberColor, setCustomNumberColor] = useState("#9ca3af"); // Màu số chính (Mặc định XÁM)
+
+  // Music Modal State in Timer
+  const [showMusicSearch, setShowMusicSearch] = useState(false);
 
   // Form State
   const [subject, setSubject] = useState(SUBJECTS[0]);
@@ -258,6 +263,34 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile 
 
       return (
           <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center overflow-hidden transition-colors duration-500" style={{ backgroundColor: customBgColor }}>
+              
+              {/* BUTTON MỞ NHẠC */}
+              <div className="absolute top-6 left-6 z-50">
+                   <button onClick={() => setShowMusicSearch(true)} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors text-white border border-white/10" title="Chọn nhạc">
+                       <Music size={20}/>
+                   </button>
+              </div>
+
+              {/* MODAL CHỌN NHẠC */}
+              {showMusicSearch && (
+                  <div className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+                      <div className="bg-[#1e1e2e] w-full max-w-4xl h-[80vh] rounded-2xl border border-white/10 shadow-2xl flex flex-col relative overflow-hidden">
+                           <button onClick={() => setShowMusicSearch(false)} className="absolute top-4 right-4 z-10 p-2 bg-black/40 hover:bg-red-500/20 rounded-full text-gray-400 hover:text-red-400 transition-colors">
+                              <X size={20} />
+                           </button>
+                           <div className="flex-grow overflow-y-auto custom-scrollbar">
+                               <MusicTab 
+                                  theme={theme} 
+                                  onSelectVideo={(...args) => {
+                                      if (onSelectVideo) onSelectVideo(...args);
+                                      setShowMusicSearch(false);
+                                  }} 
+                                  compact={true}
+                               />
+                           </div>
+                      </div>
+                  </div>
+              )}
               
               {/* Customization Button */}
               <div className="absolute top-6 right-6 z-50">

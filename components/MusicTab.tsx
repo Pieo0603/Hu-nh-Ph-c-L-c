@@ -5,6 +5,7 @@ import { ThemeConfig } from '../types';
 interface MusicTabProps {
   theme: ThemeConfig;
   onSelectVideo: (videoId: string, title: string, channel: string, thumbnail: string) => void;
+  compact?: boolean;
 }
 
 interface SearchResult {
@@ -38,7 +39,7 @@ const RECOMMENDED = [
   { id: "M05t-Dj4Ckk", title: "Classical Music for Studying & Brain Power", channel: "HALIDONMUSIC", img: "https://i.ytimg.com/vi/M05t-Dj4Ckk/mqdefault.jpg" },
 ];
 
-const MusicTab: React.FC<MusicTabProps> = ({ theme, onSelectVideo }) => {
+const MusicTab: React.FC<MusicTabProps> = ({ theme, onSelectVideo, compact = false }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -73,18 +74,20 @@ const MusicTab: React.FC<MusicTabProps> = ({ theme, onSelectVideo }) => {
   };
 
   return (
-    <div className="animate-in fade-in duration-500 pb-24 pt-20 px-4 max-w-6xl mx-auto">
+    <div className={`animate-in fade-in duration-500 ${compact ? 'pt-4 pb-4' : 'pt-20 pb-24'} px-4 max-w-6xl mx-auto`}>
       
       {/* Header */}
-      <div className="text-center mb-8">
-        <h2 className={`text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r ${theme.gradientTitle} uppercase tracking-widest mb-2`}>
-           Kho Nhạc YouTube
-        </h2>
-        <p className="text-gray-400 text-sm">Tìm kiếm và chọn nhạc để phát khi học bài.</p>
-      </div>
+      {!compact && (
+        <div className="text-center mb-8">
+            <h2 className={`text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r ${theme.gradientTitle} uppercase tracking-widest mb-2`}>
+            Kho Nhạc YouTube
+            </h2>
+            <p className="text-gray-400 text-sm">Tìm kiếm và chọn nhạc để phát khi học bài.</p>
+        </div>
+      )}
 
       {/* Search Bar */}
-      <div className="glass-panel p-4 md:p-6 rounded-2xl mb-8 border-t border-white/10 shadow-xl max-w-3xl mx-auto">
+      <div className={`glass-panel p-4 md:p-6 rounded-2xl mb-8 border-t border-white/10 shadow-xl max-w-3xl mx-auto ${compact ? 'bg-black/40' : ''}`}>
          <form onSubmit={handleSearch} className="space-y-4">
             <div className="flex gap-2">
                <input 
@@ -153,7 +156,7 @@ const MusicTab: React.FC<MusicTabProps> = ({ theme, onSelectVideo }) => {
             <Music size={18} className="text-yellow-400" /> Đề xuất chọn lọc (An toàn)
         </h3>
         <p className="text-xs text-gray-500 mb-4">Các playlist này luôn hoạt động kể cả khi tính năng Tìm kiếm bị lỗi Key.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4">
+        <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${compact ? 'xl:grid-cols-3' : 'xl:grid-cols-3'} gap-4`}>
             {RECOMMENDED.map((item) => (
                 <div 
                   key={item.id} 

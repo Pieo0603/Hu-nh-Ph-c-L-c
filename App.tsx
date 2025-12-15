@@ -720,6 +720,7 @@ const App: React.FC = () => {
                     theme={currentTheme} 
                     user={currentUser} 
                     onViewProfile={handleViewProfile}
+                    onSelectVideo={handleSelectVideo}
                />
            </div>
         )}
