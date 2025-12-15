@@ -11,7 +11,7 @@ import MusicTab from './components/MusicTab';
 import AiAssistant from './components/AiAssistant';
 import UserProfileModal from './components/UserProfileModal';
 import { Message, ThemeConfig, AppUser } from './types';
-import { Settings, Home, Palette, Music, Timer, BrainCircuit, LogOut, LogIn, User as UserIcon, X, ArrowRight, Edit3, Camera, Link as LinkIcon, GraduationCap, FileText, RotateCw, PenTool, BookOpen } from 'lucide-react';
+import { Settings, Home, Palette, Music, Timer, BrainCircuit, LogOut, LogIn, User as UserIcon, X, ArrowRight, Edit3, Camera, Link as LinkIcon, GraduationCap, FileText, RotateCw, PenTool, BookOpen, Sparkles } from 'lucide-react';
 import firebase from 'firebase/compat/app';
 import { db, auth, googleProvider } from './services/firebase';
 
@@ -731,13 +731,47 @@ const App: React.FC = () => {
                {learningSubject === 'menu' ? (
                    <div className="max-w-4xl mx-auto">
                        <div className="text-center mb-12">
-                           <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-white/10 mb-6 shadow-2xl backdrop-blur-sm group hover:scale-105 transition-transform duration-500">
-                               <GraduationCap size={40} className="text-indigo-300 drop-shadow-[0_0_10px_rgba(165,180,252,0.5)]" />
+                           {/* NEW ICON DESIGN */}
+                           <div className="relative inline-flex items-center justify-center mb-8 group cursor-pointer">
+                                {/* Outer Glow */}
+                                <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-[2.5rem] blur-2xl opacity-20 group-hover:opacity-50 transition-opacity duration-700 animate-pulse-slow"></div>
+                                
+                                {/* Main Container */}
+                                <div className="relative w-28 h-28 md:w-32 md:h-32 rounded-[2rem] bg-gradient-to-br from-[#1e1e2e] to-[#0f0c29] border border-white/10 flex items-center justify-center shadow-2xl group-hover:scale-105 transition-transform duration-500 z-10 overflow-hidden">
+                                    
+                                    {/* Glass Shine */}
+                                    <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/10 to-transparent pointer-events-none"></div>
+                                    
+                                    {/* Icon Stack */}
+                                    <div className="relative z-10 flex flex-col items-center">
+                                         <div className="p-3 bg-indigo-500/20 rounded-2xl mb-1 group-hover:-translate-y-1 transition-transform duration-500 border border-indigo-500/30">
+                                            <GraduationCap size={40} className="text-indigo-300 drop-shadow-[0_0_10px_rgba(165,180,252,0.8)]" />
+                                         </div>
+                                         <div className="w-12 h-1 bg-indigo-500/50 rounded-full blur-[2px] mt-2 group-hover:scale-x-125 transition-transform duration-500"></div>
+                                    </div>
+                                    
+                                    {/* Floating Sparkles */}
+                                    <div className="absolute top-4 right-4 animate-bounce delay-700">
+                                        <Sparkles size={14} className="text-yellow-400 drop-shadow-lg" />
+                                    </div>
+                                    <div className="absolute bottom-4 left-4 animate-pulse">
+                                        <BookOpen size={14} className="text-blue-400 opacity-60" />
+                                    </div>
+                                </div>
+
+                                {/* Floating Badge */}
+                                <div className="absolute -top-2 -right-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-lg border border-white/20 z-20 rotate-12 group-hover:rotate-0 transition-transform duration-300">
+                                    Mới
+                                </div>
                            </div>
-                           <h2 className={`text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r ${currentTheme.gradientTitle} uppercase tracking-widest mb-3`}>
+
+                           <h2 className={`text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r ${currentTheme.gradientTitle} uppercase tracking-widest mb-4 drop-shadow-sm`}>
                                Góc Học Tập
                            </h2>
-                           <p className="text-gray-400 text-sm">Chọn môn học để bắt đầu ôn luyện ngay hôm nay</p>
+                           <p className="text-gray-400 text-sm md:text-base max-w-lg mx-auto leading-relaxed">
+                               Kho tài liệu, từ vựng và bài tập được biên soạn kỹ lưỡng.<br/>
+                               <span className="text-indigo-400 font-bold">Chinh phục điểm 9+</span> ngay hôm nay.
+                           </p>
                        </div>
                        
                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
