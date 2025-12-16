@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../services/firebase';
 import { StudyLog, ThemeConfig, LeaderboardEntry, AppUser } from '../types';
-import { Play, Pause, Square, CheckCircle, Clock, Music, LayoutList, Trophy, User as UserIcon, AlertCircle, History, Lock, Trash2, Link as LinkIcon, Quote, Flame, Palette, Settings2, X } from 'lucide-react';
+import { Play, Pause, Square, CheckCircle, Clock, Music, LayoutList, Trophy, User as UserIcon, AlertCircle, History, Lock, Trash2, Link as LinkIcon, Quote, Flame, Palette, Settings2, X, Bell } from 'lucide-react';
 import MusicTab from './MusicTab';
 
 interface StudyTrackerProps {
@@ -10,6 +10,9 @@ interface StudyTrackerProps {
   onViewProfile?: (userId: string) => void;
   onSelectVideo?: (videoId: string, title: string, channel: string, thumbnail: string) => void;
 }
+
+// Sound for timer finish
+const ALARM_SOUND = "https://assets.mixkit.co/active_storage/sfx/219/219-preview.mp3"; // Small Bell
 
 // Cấu hình môn học với Icon và Màu sắc đặc trưng
 const SUBJECT_CONFIG: Record<string, { icon: string, color: string }> = {
@@ -204,6 +207,22 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile,
     return () => clearInterval(interval);
   }, [isTimerRunning]);
 
+  // Alarm Logic: Check when target reached
+  useEffect(() => {
+      const targetSeconds = targetMinutes * 60;
+      if (isTimerRunning && elapsedSeconds === targetSeconds) {
+          // Play sound
+          const audio = new Audio(ALARM_SOUND);
+          audio.volume = 0.8;
+          audio.play().catch(e => console.error("Play sound error", e));
+          
+          // Vibrate on mobile
+          if (navigator.vibrate) {
+              navigator.vibrate([500, 200, 500, 200, 1000]);
+          }
+      }
+  }, [elapsedSeconds, targetMinutes, isTimerRunning]);
+
   const handleUserClick = (userId: string) => {
       if (onViewProfile) {
           onViewProfile(userId);
@@ -275,25 +294,33 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile,
   if (isSessionActive) {
       const totalTargetSeconds = targetMinutes * 60;
       let remainingSeconds = totalTargetSeconds - elapsedSeconds;
-      if (remainingSeconds < 0) remainingSeconds = 0;
+      let isOvertime = false;
+
+      // Handle Overtime logic (nếu học quá giờ)
+      if (remainingSeconds < 0) {
+          remainingSeconds = Math.abs(remainingSeconds);
+          isOvertime = true;
+      }
       
+      // Percent for progress bar (cap at 100 or loop?)
       const percent = Math.min(100, (elapsedSeconds / totalTargetSeconds) * 100);
       
       const hours = Math.floor(remainingSeconds / 3600);
       const minutes = Math.floor((remainingSeconds % 3600) / 60);
       const seconds = remainingSeconds % 60;
 
-      // Logic cũ: Đổi màu theo thời gian -> BỎ QUA theo yêu cầu
-      // Chỉ giữ hiệu ứng pulse/rung khi sắp hết giờ
       let pulseEffect = "";
-      let timeStatusText = "Đang tập trung";
+      let timeStatusText = isOvertime ? "Đang học thêm (Overtime)" : "Đang tập trung";
 
-      if (remainingSeconds < 300) { 
-           timeStatusText = "Tăng tốc!";
-      }
-      if (remainingSeconds < 60) { 
-           pulseEffect = "animate-pulse"; // Vẫn giữ hiệu ứng nhấp nháy để báo động
-           timeStatusText = "Sắp hết giờ!";
+      // Chỉ báo động khi chưa Overtime
+      if (!isOvertime) {
+          if (remainingSeconds < 300) { 
+               timeStatusText = "Tăng tốc!";
+          }
+          if (remainingSeconds < 60) { 
+               pulseEffect = "animate-pulse"; 
+               timeStatusText = "Sắp hết giờ!";
+          }
       }
 
       return (
@@ -387,7 +414,8 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile,
 
               {/* Header Info (Subject Badge) */}
               <div className="flex flex-col items-center gap-2 mb-4 md:mb-12 animate-in slide-in-from-top-10 duration-700">
-                  <span className="text-xs md:text-sm font-bold tracking-[0.3em] uppercase opacity-70" style={{ color: customTextColor }}>
+                  <span className={`text-xs md:text-sm font-bold tracking-[0.3em] uppercase ${isOvertime ? 'text-green-400 animate-pulse' : 'opacity-70'}`} style={{ color: isOvertime ? '#4ade80' : customTextColor }}>
+                      {isOvertime && <span className="mr-2">🔥</span>}
                       {timeStatusText}
                   </span>
                   <div className="inline-flex items-center gap-3 px-8 py-2.5 rounded-full border border-white/10 bg-[#111]/50 backdrop-blur-md shadow-xl">
@@ -398,11 +426,12 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile,
               
               {/* Main Timer Display */}
               <div className={`flex justify-center items-center gap-2 md:gap-4 mb-8 md:mb-12 scale-75 md:scale-90 lg:scale-100 origin-center ${pulseEffect}`}>
-                  <FlipCard value={hours} label="Giờ" customColor={customNumberColor} textColor={customTextColor} />
+                  {isOvertime && <span className="text-4xl md:text-6xl font-black text-green-500 mr-2">+</span>}
+                  <FlipCard value={hours} label="Giờ" customColor={isOvertime ? '#4ade80' : customNumberColor} textColor={customTextColor} />
                   <span className={`text-4xl md:text-6xl font-bold -mt-12 opacity-50`} style={{ color: customNumberColor }}>:</span>
-                  <FlipCard value={minutes} label="Phút" customColor={customNumberColor} textColor={customTextColor} />
+                  <FlipCard value={minutes} label="Phút" customColor={isOvertime ? '#4ade80' : customNumberColor} textColor={customTextColor} />
                   <span className={`text-4xl md:text-6xl font-bold -mt-12 opacity-50`} style={{ color: customNumberColor }}>:</span>
-                  <FlipCard value={seconds} label="Giây" customColor={customNumberColor} textColor={customTextColor} />
+                  <FlipCard value={seconds} label="Giây" customColor={isOvertime ? '#4ade80' : customNumberColor} textColor={customTextColor} />
               </div>
 
               {/* Progress Bar & Stats */}
@@ -410,8 +439,8 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile,
                   {/* Progress Bar */}
                   <div className="w-full h-1.5 bg-gray-800/50 rounded-full overflow-hidden relative">
                       <div 
-                        className={`h-full transition-all duration-1000 ease-linear`}
-                        style={{ width: `${percent}%`, backgroundColor: customNumberColor }}
+                        className={`h-full transition-all duration-1000 ease-linear ${isOvertime ? 'bg-green-500' : ''}`}
+                        style={{ width: `${percent}%`, backgroundColor: isOvertime ? '#4ade80' : customNumberColor }}
                       ></div>
                   </div>
 
@@ -431,11 +460,9 @@ const StudyTracker: React.FC<StudyTrackerProps> = ({ theme, user, onViewProfile,
                   {/* Controls */}
                   <div className="flex justify-center gap-8 mt-2">
                       {!isTimerRunning ? (
-                          remainingSeconds > 0 && (
-                            <button onClick={() => setIsTimerRunning(true)} className={`w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shadow-lg transition-all transform hover:scale-110 group hover:bg-white/10`}>
+                          <button onClick={() => setIsTimerRunning(true)} className={`w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shadow-lg transition-all transform hover:scale-110 group hover:bg-white/10`}>
                                 <Play size={32} fill={customNumberColor} style={{ color: customNumberColor }} />
-                            </button>
-                          )
+                          </button>
                       ) : (
                           <button onClick={() => setIsTimerRunning(false)} className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shadow-lg transition-all transform hover:scale-110 group hover:bg-white/10">
                              <Pause size={32} fill={customNumberColor} style={{ color: customNumberColor }} />
