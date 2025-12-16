@@ -1,5 +1,8 @@
+// @ts-ignore
 import firebase from "firebase/compat/app";
+// @ts-ignore
 import "firebase/compat/auth";
+// @ts-ignore
 import "firebase/compat/firestore";
 
 // --- CẤU HÌNH FIREBASE (demnguocthi) ---

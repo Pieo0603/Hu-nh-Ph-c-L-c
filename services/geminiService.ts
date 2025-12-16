@@ -5,14 +5,8 @@ import { GoogleGenAI } from "@google/genai";
 
 export const generateWish = async (): Promise<string> => {
   try {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey || apiKey.includes("AIzaSyAcdOdg1NXhgdvQHMP4aFwwS21tL56Y82c")) {
-         // Key mặc định thường bị hết hạn, cảnh báo nhẹ nhưng vẫn thử gọi
-         console.warn("Đang dùng Key mặc định, có thể bị lỗi.");
-    }
-
     // Initialize Gemini client with API key from environment variable directly
-    const ai = new GoogleGenAI({ apiKey: apiKey });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     // We use flash for speed
     const response = await ai.models.generateContent({
@@ -34,15 +28,13 @@ export interface ChatMessage {
 }
 
 export const getChatResponse = async (history: ChatMessage[], newMessage: string, image?: string): Promise<string> => {
-    const apiKey = process.env.API_KEY;
-    
     // Kiểm tra sơ bộ
-    if (!apiKey) {
+    if (!process.env.API_KEY) {
         return "⚠️ Lỗi: Chưa cấu hình API Key. Vui lòng tạo file .env và thêm VITE_API_KEY=...";
     }
 
     try {
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         
         // Format history
         const formattedHistory = history.map(msg => ({

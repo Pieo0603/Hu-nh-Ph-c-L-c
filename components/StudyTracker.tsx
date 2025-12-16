@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../services/firebase';
 import { StudyLog, ThemeConfig, LeaderboardEntry, AppUser } from '../types';
-import { Play, Pause, Square, CheckCircle, Clock, Music, LayoutList, Trophy, User as UserIcon, AlertCircle, History, Lock, Trash2, Link as LinkIcon, Quote, Flame, Palette, Settings2, X, Bell } from 'lucide-react';
+import { Play, Pause, Square, CheckCircle, Clock, Music, LayoutList, Trophy, User as UserIcon, AlertCircle, History, Lock, Trash2, Link as LinkIcon, Quote, Flame, Palette, Settings2, X } from 'lucide-react';
 import MusicTab from './MusicTab';
 
 interface StudyTrackerProps {

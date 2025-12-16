@@ -11,7 +11,7 @@ import MusicTab from './components/MusicTab';
 import AiAssistant from './components/AiAssistant';
 import UserProfileModal from './components/UserProfileModal';
 import { Message, ThemeConfig, AppUser } from './types';
-import { Settings, Home, Palette, Music, Timer, BrainCircuit, LogOut, LogIn, User as UserIcon, X, ArrowRight, Edit3, Camera, Link as LinkIcon, GraduationCap, FileText, RotateCw, PenTool, BookOpen, Sparkles } from 'lucide-react';
+import { Settings, Home, Palette, Music, Timer, LogOut, LogIn, User as UserIcon, X, ArrowRight, Edit3, Camera, Link as LinkIcon, GraduationCap, FileText, RotateCw, PenTool, BookOpen, Sparkles } from 'lucide-react';
 import firebase from 'firebase/compat/app';
 import { db, auth, googleProvider } from './services/firebase';
 

@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../services/firebase';
 import { ThemeConfig, VocabItem, Topic, AppUser } from '../types';
-import { BookOpen, HelpCircle, Volume2, Check, X, ArrowLeft, Code, Save, ChevronRight, Trophy, BarChart3, Clock, Flame, PieChart, AlertTriangle, Loader2, Lock, Unlock, Facebook, Phone, Copy, RefreshCw, Calendar, BrainCircuit, List, RotateCcw, Coffee, Play, Headphones, CheckCircle2, XCircle } from 'lucide-react';
+import { BookOpen, HelpCircle, Volume2, Check, ArrowLeft, Code, Trophy, BarChart3, Clock, PieChart, Loader2, Lock, Unlock, BrainCircuit, List, RotateCcw, Coffee, CheckCircle2, XCircle } from 'lucide-react';
 
 interface EnglishHubProps {
   theme: ThemeConfig;
@@ -220,6 +220,11 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user, onBack }) => {
               topicId, userId: user.uid, vocabState: {}, quizScores: [], studySeconds: 0, lastStudied: Date.now()
           };
 
+          // Ensure vocabState is initialized
+          if (!currentData.vocabState) {
+              currentData.vocabState = {};
+          }
+
           if (type === 'flashcard') {
               const { wordId, rating } = data; 
               const now = Date.now();
@@ -363,7 +368,7 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user, onBack }) => {
 
       {/* 2. STATS */}
       {!selectedTopic && mode === 'stats' && user && (
-          <UserStatsView progress={userProgress} theme={theme} />
+          <UserStatsView progress={userProgress} />
       )}
 
       {/* 3. UNLOCK */}
@@ -401,7 +406,6 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user, onBack }) => {
                 <SRSFlashcardView 
                     vocabList={vocabList} 
                     userProgress={userProgress[selectedTopic.id]} 
-                    theme={theme} 
                     onSaveProgress={(wordId, rating) => saveProgress(selectedTopic.id, 'flashcard', { wordId, rating })} 
                     onSaveTime={(seconds) => saveProgress(selectedTopic.id, 'time', { seconds })} 
                 />
@@ -412,7 +416,7 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user, onBack }) => {
             )}
 
             {!loading && vocabList.length > 0 && mode === 'listening' && (
-                <ListeningView vocabList={vocabList} theme={theme} />
+                <ListeningView vocabList={vocabList} />
             )}
 
             {mode === 'code' && <CodeSnippetView topicId={selectedTopic.id} theme={theme} />}
@@ -421,7 +425,6 @@ const EnglishHub: React.FC<EnglishHubProps> = ({ theme, user, onBack }) => {
                 <VocabListView 
                     vocabList={vocabList} 
                     userProgress={userProgress[selectedTopic.id]} 
-                    theme={theme}
                     onResetWord={(wordId) => saveProgress(selectedTopic.id, 'reset', { wordId })}
                 />
             )}
@@ -460,10 +463,10 @@ type StudyPhase = 'learning' | 'break' | 'practice';
 const SRSFlashcardView: React.FC<{ 
     vocabList: VocabItem[], 
     userProgress: UserTopicProgress | undefined,
-    theme: ThemeConfig, 
+    // Removed unused theme prop
     onSaveProgress: (wordId: string, rating: 'again' | 'good' | 'easy') => void,
     onSaveTime: (seconds: number) => void
-}> = ({ vocabList, userProgress, theme, onSaveProgress, onSaveTime }) => {
+}> = ({ vocabList, userProgress, onSaveProgress, onSaveTime }) => {
     
     // 1. Queue Management
     const studyQueue = useMemo(() => {
@@ -899,7 +902,8 @@ const MiniListeningCard: React.FC<{
 };
 
 // ... (Các component phụ khác giữ nguyên)
-const UserStatsView: React.FC<{ progress: Record<string, UserTopicProgress>, theme: ThemeConfig }> = ({ progress, theme }) => {
+// Removed unused 'theme' prop
+const UserStatsView: React.FC<{ progress: Record<string, UserTopicProgress> }> = ({ progress }) => {
     const allProgress = Object.values(progress) as UserTopicProgress[];
     const boxCounts = [0, 0, 0, 0, 0, 0];
     let totalVocab = 0;
@@ -1006,7 +1010,8 @@ const QuizView: React.FC<{ vocabList: VocabItem[], theme: ThemeConfig, onSaveSco
     );
 };
 
-const ListeningView: React.FC<{ vocabList: VocabItem[], theme: ThemeConfig }> = ({ vocabList, theme }) => {
+// Removed unused 'theme' prop
+const ListeningView: React.FC<{ vocabList: VocabItem[] }> = ({ vocabList }) => {
     const [index, setIndex] = useState(0);
     const [input, setInput] = useState('');
     const [status, setStatus] = useState<'idle' | 'correct' | 'wrong'>('idle');
@@ -1049,12 +1054,12 @@ const CodeSnippetView: React.FC<{ topicId: string, theme: ThemeConfig }> = ({ to
     );
 };
 
+// Removed unused 'theme' prop
 const VocabListView: React.FC<{
     vocabList: VocabItem[],
     userProgress: UserTopicProgress | undefined,
-    theme: ThemeConfig,
     onResetWord: (wordId: string) => void
-}> = ({ vocabList, userProgress, theme, onResetWord }) => {
+}> = ({ vocabList, userProgress, onResetWord }) => {
     const vocabState = userProgress?.vocabState || {};
     const now = Date.now();
 
